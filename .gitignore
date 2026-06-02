@@ -22,6 +22,7 @@ secret*.txt
 
 # Cloned reference repos (not part of Stelvin's own source)
 /stellar-ai-guide/
+/stellar-build/
 
 # OS / editor
 .DS_Store
