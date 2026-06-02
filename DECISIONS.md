@@ -376,9 +376,16 @@ verified) and is therefore left last.
   `match_and_settle` (global feasibility scalar, floor-then-trim), reveal dedup,
   lifecycle events, one-order-per-trader guard. 12 tests incl. conservation +
   no-revert + dedup + per-trader; wasm release build green.
-- **M2 — Deploy & wire.** Deploy two test SACs (X, USDC) + BatchGate to testnet
-  with the live relay address; smoke-test deposit → create → submit → settle via
-  CLI. Generate typed frontend bindings.
+- **M2 — Deploy & wire (done).** Two test SACs (X, USDC) + BatchGate deployed to
+  testnet against the live relay; full end-to-end CLI smoke-test **passed and is
+  reproducible** via `scripts/deploy_and_smoke.sh` (one command:
+  deposit → create_batch(R) → submit_order ×2 → feeder publishes R → fetch raw
+  48-byte compressed sigma → on-chain `sha256(sigma)==relay.get(R)` ✓ → settle →
+  balances change at the uniform clearing price). Confirmed: 100 X traded for 80
+  USDC at `P*=0.8` (tie-break picked the lower crossing limit), conservation
+  exact, `BatchSettled` event emitted. Latest BatchGate:
+  `CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA`. Next: typed
+  frontend bindings.
 - **M3 — Settler.** TS service: read batch → fetch raw 48-byte `sigma_R` from
   quicknet → `tlock-js` decrypt all ciphertexts → call `settle`. Idempotent,
   retry-safe.

@@ -39,7 +39,12 @@ rationale, trade-offs, threat model, and milestones are in
   `submit_order`, `lock_batch`, `settle` + on-chain matching, reveal dedup,
   one-order-per-trader guard, lifecycle events. 12/12 unit tests (incl.
   conservation + no-revert + dedup). Wasm builds (~23.7 KB, `wasm32v1-none`).
-- ⏳ Deploy to testnet · settler · frontend · frontrunner-bot demo · docs.
+- ✅ **Testnet (M2)** — deployed against the live Drand-Relay; one-command
+  end-to-end smoke test (`scripts/deploy_and_smoke.sh`): deposit → create batch →
+  sealed submit → drand round publishes → fetch sigma → settle → balances change
+  at the uniform clearing price. Encoding (`sha256(48-byte compressed sigma) ==
+  relay.get(R)`) CLI-verified.
+- ⏳ Settler (tlock) · frontend · frontrunner-bot demo · docs.
 
 ## Build & test
 
