@@ -8,16 +8,16 @@ export function LogoMark({ size = 22, className }: { size?: number; className?: 
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
       <defs>
         <linearGradient id="stelvin-ring" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-          <stop stopColor="hsl(251 90% 66%)" />
-          <stop offset="1" stopColor="hsl(168 84% 56%)" />
+          <stop stopColor="hsl(37 93% 54%)" />
+          <stop offset="1" stopColor="hsl(80 78% 54%)" />
         </linearGradient>
       </defs>
       {/* revealed ring */}
       <circle cx="12" cy="12" r="9" stroke="url(#stelvin-ring)" strokeWidth="1.6" />
       {/* the gap = the "reveal" opening */}
-      <path d="M12 3 a9 9 0 0 1 7.4 3.9" stroke="hsl(233 42% 5.5%)" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M12 3 a9 9 0 0 1 7.4 3.9" stroke="hsl(38 12% 6%)" strokeWidth="2.4" strokeLinecap="round" />
       {/* sealed core */}
-      <circle cx="12" cy="12" r="3.4" fill="hsl(251 90% 66%)" />
+      <circle cx="12" cy="12" r="3.4" fill="hsl(37 93% 54%)" />
       <circle cx="12" cy="12" r="3.4" fill="url(#stelvin-ring)" opacity="0.5" />
     </svg>
   )

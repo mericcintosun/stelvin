@@ -13,14 +13,15 @@ blocks on a missing asset.
 | `hero.png` / `hero.webp` *(optional)* | drop into the Hero in `src/pages/Landing.tsx` | ≥1600px wide, transparent or dark bg |
 
 ## Palette (for whoever designs the assets)
-- Background: `#0a0b14` (deep indigo-navy — **not** flat black)
-- Sealed (primary): `#7b6cf9` electric indigo-violet
-- Revealed (secondary): `#29e0b8` aqua-mint
-- Text: `#f2f5fb`
+Construction / "Build on Stellar" work-site theme, kept fully dark:
+- Background: `#12100c` (warm concrete-dark — **not** flat black)
+- Sealed (primary): `#f0a51f` hazard / caution amber
+- Revealed (secondary): `#b4dd2e` hi-vis safety lime-green
+- Stop / loss: `#e8492e` construction red
+- Text: `#f7f3ec` warm concrete-white
 
-Keep gold **out** of the palette — it belongs to another project in this ecosystem;
-Stelvin's signature is the indigo→mint "sealed → revealed" gradient. See
-[`../../BRAND.md`](../../BRAND.md).
+Visual register is **industrial / caution-tape**, not sleek gold. Stelvin's signature
+is the amber→lime "sealed → revealed" gradient. See [`../../BRAND.md`](../../BRAND.md).
 
 ## Fonts
 Space Grotesk (headings) · Inter (body) · JetBrains Mono (numbers/code).

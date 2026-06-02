@@ -45,7 +45,7 @@ export default function Starfield() {
           r: z * rng(0.5, 1.5),
           tw: rng(0.004, 0.02),
           ph: rng(0, Math.PI * 2),
-          hue: Math.random() < 0.14 ? (Math.random() < 0.5 ? 250 : 168) : 220, // mostly cool white, a few indigo/mint
+          hue: Math.random() < 0.14 ? (Math.random() < 0.5 ? 40 : 80) : 44, // mostly warm white, a few amber/lime
         }
       })
       baseY = stars.map((s) => s.y)
@@ -55,8 +55,8 @@ export default function Starfield() {
       c!.clearRect(0, 0, w, h)
       for (const s of stars) {
         const tw = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(t * s.tw * 60 + s.ph)
-        const sat = s.hue === 220 ? 30 : 80
-        const light = s.hue === 220 ? 92 : 70
+        const sat = s.hue === 44 ? 24 : 85
+        const light = s.hue === 44 ? 92 : 62
         c!.beginPath()
         c!.arc(s.x, s.y, s.r, 0, Math.PI * 2)
         c!.fillStyle = `hsla(${s.hue}, ${sat}%, ${light}%, ${0.85 * tw * s.z})`

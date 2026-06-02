@@ -16,7 +16,7 @@ export function BeaconPulse({ className }: { className?: string }) {
       <span className="absolute h-24 w-24 rounded-full bg-sealed/10 blur-xl" />
       {/* core: sealed indigo with a revealed-mint inner glint */}
       <span className="relative grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-sealed to-sealed-700 shadow-sealed">
-        <span className="h-2.5 w-2.5 rounded-full bg-revealed shadow-[0_0_12px_2px_hsl(168_84%_56%/0.9)]" />
+        <span className="h-2.5 w-2.5 rounded-full bg-revealed shadow-[0_0_12px_2px_hsl(80_78%_54%/0.9)]" />
       </span>
     </div>
   )

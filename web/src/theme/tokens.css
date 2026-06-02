@@ -18,36 +18,36 @@
 @tailwind utilities;
 
 :root {
-  /* ---- Base: deep space, faint indigo undertone (never pure black) ---- */
-  --bg:          233 42% 5.5%;   /* page background — deep indigo-navy        */
-  --bg-soft:     232 36% 8%;     /* raised page bands                          */
-  --surface:     230 32% 10.5%;  /* cards                                      */
-  --surface-2:   229 28% 14%;    /* nested / hovered surfaces                  */
-  --border:      230 24% 20%;    /* hairline borders, indigo-tinted           */
-  --border-soft: 230 22% 16%;
+  /* ---- Base: dark warm concrete / night-asphalt (never pure black) ---- */
+  --bg:          38 12% 6%;      /* page background — warm near-black concrete */
+  --bg-soft:     36 10% 9%;      /* raised page bands                          */
+  --surface:     36 9% 11.5%;    /* cards                                      */
+  --surface-2:   36 9% 16%;      /* nested / hovered surfaces                  */
+  --border:      38 11% 23%;     /* hairline borders, warm-grey                */
+  --border-soft: 38 10% 18%;
 
-  /* ---- Text (cool whites for legibility on indigo, WCAG AA on --bg) ---- */
-  --text:        220 36% 97%;    /* primary — ~16:1 on --bg                    */
-  --text-dim:    222 18% 74%;    /* secondary body — ~7:1                      */
-  --text-muted:  224 14% 58%;    /* captions / meta — ~4.6:1                   */
+  /* ---- Text (warm concrete whites, WCAG AA on --bg) ---- */
+  --text:        42 24% 96%;     /* primary — ~16:1 on --bg                    */
+  --text-dim:    40 12% 75%;     /* secondary body — ~7:1                      */
+  --text-muted:  40 9% 57%;      /* captions / meta — ~4.6:1                   */
 
-  /* ---- SEALED accent (primary): cold electric indigo-violet ---- */
-  --sealed-300:  250 95% 80%;
-  --sealed-400:  250 92% 73%;
-  --sealed:      251 90% 66%;    /* DEFAULT — locked / hidden state            */
-  --sealed-600:  252 74% 56%;
-  --sealed-700:  254 60% 45%;
+  /* ---- SEALED accent (primary): hazard / caution amber — locked, "caution" ---- */
+  --sealed-300:  41 96% 72%;
+  --sealed-400:  39 95% 63%;
+  --sealed:      37 93% 54%;     /* DEFAULT — locked / hidden state            */
+  --sealed-600:  33 88% 46%;
+  --sealed-700:  28 80% 37%;
 
-  /* ---- REVEALED accent (secondary): bright aqua-mint — the "fair" burst ---- */
-  --revealed-300: 167 92% 78%;
-  --revealed:     168 84% 56%;   /* DEFAULT — opened / cleared / fair          */
-  --revealed-600: 170 78% 45%;
-  --revealed-700: 172 70% 36%;
+  /* ---- REVEALED accent (secondary): hi-vis safety lime — cleared / fair / "go" ---- */
+  --revealed-300: 78 88% 74%;
+  --revealed:     80 78% 54%;    /* DEFAULT — opened / cleared / fair          */
+  --revealed-600: 86 70% 43%;
+  --revealed-700: 92 60% 33%;
 
   /* ---- Semantic ---- */
-  --attack:      356 82% 63%;    /* the sandwich / MEV loss — coral red        */
-  --attack-dim:  356 50% 22%;
-  --warn:        38 92% 60%;     /* "too early" countdown amber (sparingly)    */
+  --attack:      9 84% 57%;      /* the sandwich / MEV loss — construction stop-red */
+  --attack-dim:  9 55% 22%;
+  --warn:        44 96% 58%;     /* "too early" countdown — caution amber-yellow */
 
   /* ---- Radius ---- */
   --radius:      0.875rem;       /* 14px — cards                               */

@@ -13,8 +13,12 @@ clears at one fair price. The brand encodes exactly this:
 
 | State | Meaning | Color role |
 |---|---|---|
-| **Sealed** | hidden, locked, private, pre-reveal | cold **electric indigo-violet** (primary) |
-| **Revealed** | opened, fair, cleared, public | bright **aqua-mint** (secondary) |
+| **Sealed** | hidden, locked, "caution", pre-reveal | **hazard / caution amber** (primary) |
+| **Revealed** | opened, fair, cleared, "go" | **hi-vis safety lime-green** (secondary) |
+
+The palette is derived from the **Build on Stellar Hackathon** event identity —
+construction / work-site: caution-amber, hazard stripes, hi-vis safety green, and
+warm concrete — re-skinned onto Stelvin's two-state machine and kept fully dark.
 
 So the palette is *semantic*, not decorative. In the demo, the moment of `settle`
 visually transitions sealed-indigo → revealed-mint — the "money moment." Indigo
@@ -23,15 +27,18 @@ and the reveal burst, so it stays meaningful.
 
 ## Palette
 
-Deep-space base with a faint indigo undertone — **never flat black** (a deliberate
-break from the reference). Tokens live in [`src/theme/tokens.css`](./src/theme/tokens.css)
-as raw HSL channels and are exposed through Tailwind in [`tailwind.config.js`](./tailwind.config.js).
+Warm near-black **concrete / night-asphalt** base — **never flat black**. Tokens live
+in [`src/theme/tokens.css`](./src/theme/tokens.css) as raw HSL channels and are
+exposed through Tailwind in [`tailwind.config.js`](./tailwind.config.js).
 
-- **Base** `--bg hsl(233 42% 5.5%)` ≈ deep indigo-navy; surfaces step up in lightness with indigo-tinted borders.
-- **Sealed (primary)** `--sealed hsl(251 90% 66%)` + 300/400/600/700 ramp.
-- **Revealed (secondary)** `--revealed hsl(168 84% 56%)` + 300/600/700 ramp.
-- **Attack** `--attack hsl(356 82% 63%)` — coral red, used only for the MEV/sandwich loss.
-- **Warn** `--warn hsl(38 92% 60%)` — the "too early" countdown, used sparingly.
+- **Base** `--bg hsl(38 12% 6%)` ≈ `#12100c` warm concrete-dark; surfaces step up with warm-grey borders.
+- **Sealed (primary)** `--sealed hsl(37 93% 54%)` ≈ `#f0a51f` hazard amber + 300/400/600/700 ramp.
+- **Revealed (secondary)** `--revealed hsl(80 78% 54%)` ≈ `#b4dd2e` hi-vis lime + 300/600/700 ramp.
+- **Attack** `--attack hsl(9 84% 57%)` — construction stop-red, used only for the MEV/sandwich loss.
+- **Warn** `--warn hsl(44 96% 58%)` — the "too early" countdown, caution amber-yellow, used sparingly.
+
+CTAs and the amber primary use **dark text** (`text-bg`) for AA contrast on the bright
+hazard amber; the lime secondary likewise carries dark text.
 
 **Contrast:** text ramp (`--text` ~16:1, `--text-dim` ~7:1, `--text-muted` ~4.6:1
 on `--bg`) clears WCAG AA for body and large text in dark mode. Accents are used
@@ -68,11 +75,12 @@ final logo / illustration / OG assets; drop them into
 
 ## Divergence from the Noether reference
 
-Noether's identity is **flat black + gold/amber signature + violet/blue**, Sora
-headings, a Three.js light-pillar hero. Stelvin deliberately differs: **indigo-navy
-base (not black)**, a **product-mapped indigo↔mint two-state system with zero gold**,
-**Space Grotesk** headings, and a **canvas starfield + beacon pulse** hero. We
-borrowed Noether's *craft* (spotlight cards, gradient-shimmer text, scroll-reveal
-discipline, reduced-motion rigor) — not its look. Cloning the visual identity would
-be both unethical and bad judge optics ("is this their own work?"); this is Stelvin's
-own.
+Noether's identity is **flat black + a sleek gold signature + violet/blue**, Sora
+headings, a Three.js light-pillar hero. Stelvin differs through an **industrial
+work-site treatment**: a **warm concrete-dark base (not black)**, a **product-mapped
+hazard-amber ↔ hi-vis-lime two-state system** drawn from the hackathon's construction
+identity, **Space Grotesk** headings, and a **canvas starfield + beacon pulse** hero.
+The amber here reads as *caution tape / hazard sign*, not Noether's elegant gold — a
+distinct register. We borrowed Noether's *craft* (spotlight cards, gradient-shimmer
+text, scroll-reveal discipline, reduced-motion rigor), not its look — this is
+Stelvin's own.
