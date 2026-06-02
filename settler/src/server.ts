@@ -1,14 +1,17 @@
-// Stelvin M4 Phase A — demo backend.
+// Stelvin M4 Phase A — demo backend (RWA framing).
 //
 // Runs the SAME live flow as the CLI frontrunner-bot (real on-chain create/
 // submit/decrypt/settle, real tlock) and streams it to the browser as
-// Server-Sent Events. Scripted actors (the funded admin/alice/bob keys) — no
-// browser wallet. tlock decrypt happens here (server-side), so the frontend
-// needs no crypto bundling. Reuses ./lib.ts.
+// Server-Sent Events. Scripted actors (the funded admin/alice/bob/mallory keys)
+// — no browser wallet. tlock decrypt happens here (server-side). Reuses ./lib.ts.
+//
+// RWA pivot: the traded asset is a tokenized US T-bill (tUSTB) vs USDC, an
+// institutional block trade. The contract runs in permissioned (KYC) mode —
+// alice & bob are allowlisted; an un-KYC'd address (mallory) is rejected on-chain.
 
 import express from "express"
 import {
-  E, inv, asInt, sleep,
+  E, inv, asInt, sleep, RWA,
   relayLatestRound, relayGet, getBalance, getOrderCiphertext,
   encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
@@ -46,20 +49,42 @@ app.get("/api/demo", async (req, res) => {
     })
 
     // ── RIGHT: Stelvin live on testnet ──
+    // Permissioned (RWA/KYC) mode: allowlist the institutional desks (alice/bob).
+    // Idempotent + admin-only, so the demo is self-contained against any deploy.
+    try {
+      inv(E.GATE, "admin", `set_permissioned --enabled true`)
+      inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
+      inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
+      emit("kyc", { permissioned: true, base: RWA.base, quote: RWA.quote })
+    } catch (e) {
+      emit("kyc", { permissioned: false, note: "gate not permissioned (legacy deploy)" })
+    }
+
     const R = relayLatestRound() + 20
     const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
     emit("batch_opened", { batchId, R })
 
-    // XLM/USDC priced near the live Noether oracle (~$0.22) so the post-settle
-    // fair-value check is meaningful. Fixed prices — oracle stays display-only.
-    const alice: Order = { side: "Buy", amount: 100, limit_price: 2_250_000 }
-    const bob: Order = { side: "Sell", amount: 100, limit_price: 2_200_000 }
+    // tUSTB/USDC block trade, priced near par ($1.00 = NAV). Fixed prices — NAV
+    // and the Noether oracle stay display-only references, never feed settle.
+    const alice: Order = { side: "Buy", amount: 100, limit_price: 10_010_000 }  // 1.001
+    const bob: Order = { side: "Sell", amount: 100, limit_price: 10_000_000 }   // 1.000
     const aHex = await encryptOrder(R, alice)
     const bHex = await encryptOrder(R, bob)
     const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))
     const boid = asInt(inv(E.GATE, "bob", `submit_order --trader ${E.BOB} --batch_id ${batchId} --ciphertext ${bHex}`))
     const onchain = getOrderCiphertext(aoid)
     emit("orders_submitted", { aoid, boid, ciphertext: onchain.slice(0, 64), bytes: onchain.length / 2 })
+
+    // RWA gate proof: an un-KYC'd address (mallory) is rejected on-chain.
+    if (E.MALLORY) {
+      let blocked = false
+      try {
+        inv(E.GATE, "mallory", `submit_order --trader ${E.MALLORY} --batch_id ${batchId} --ciphertext deadbeef`)
+      } catch {
+        blocked = true
+      }
+      emit("kyc_reject", { blocked })
+    }
 
     // Bot really runs tlock decrypt each round until R lands on-chain.
     let attempts = 0
@@ -93,19 +118,23 @@ app.get("/api/demo", async (req, res) => {
     inv(E.GATE, "admin", `settle --batch_id ${batchId} --sigma_r ${sigma} --revealed '${revealed}'`)
     const clearing = JSON.parse(inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)![0])
     const px = Number(clearing.price) / 1e7
+    const navDeviationPct = +((Math.abs(px - RWA.nav) / RWA.nav) * 100).toFixed(2)
     emit("settled", {
       price: px,
+      base: RWA.base,
+      nav: RWA.nav,
+      navDeviationPct,
       matched: Number(clearing.matched_volume),
-      aliceGainX: getBalance(E.ALICE, E.X_SAC) - aX0,
+      aliceGainBase: getBalance(E.ALICE, E.X_SAC) - aX0,
       bobGainUsdc: getBalance(E.BOB, E.USDC_SAC) - bU0,
       frontrunAttempts: attempts,
     })
 
-    // Ecosystem-fit: Noether SEP-40 oracle fair-value reference (non-blocking).
+    // Ecosystem composition: Noether SEP-40 oracle live read (non-blocking).
+    // Shown as proof of composing with Stellar's oracle layer — the RWA fair
+    // value above is NAV/par, not this liquid-pair price, so no deviation claim.
     const fv = readOracleFairValue("XLM")
-    emit("oracle", fv
-      ? { price: fv.price, source: fv.source, stale: fv.stale, deviationPct: +(Math.abs(px - fv.price) / fv.price * 100).toFixed(2) }
-      : { unavailable: true })
+    emit("oracle", fv ? { price: fv.price, source: fv.source, stale: fv.stale } : { unavailable: true })
 
     emit("done")
   } catch (e) {

@@ -14,11 +14,13 @@ type Left = {
   xFair?: number; xBot?: number; xAlice?: number; usdcBack?: number; botProfit?: number; aliceLoss?: number
 }
 type Attempt = { n: number; message: string; secondsLeft: number }
-type Oracle = { price?: number; source?: string; stale?: boolean; deviationPct?: number; unavailable?: boolean }
+type Oracle = { price?: number; source?: string; stale?: boolean; unavailable?: boolean }
 type Right = {
+  permissioned?: boolean; kycReject?: boolean
   batchId?: number; R?: number; aoid?: number; boid?: number; ciphertext?: string; bytes?: number
   attempts: Attempt[]; revealed?: boolean
-  price?: number; matched?: number; aliceGainX?: number; bobGainUsdc?: number; frontrunAttempts?: number
+  price?: number; base?: string; nav?: number; navDeviationPct?: number
+  matched?: number; aliceGainBase?: number; bobGainUsdc?: number; frontrunAttempts?: number
   oracle?: Oracle
 }
 
@@ -40,6 +42,8 @@ export default function Demo() {
       switch (e.type) {
         case "left_init": setLeft(e); break
         case "left_result": setLeft((p) => ({ ...(p as Left), ...e })); break
+        case "kyc": setRight((p) => ({ ...p, permissioned: e.permissioned })); break
+        case "kyc_reject": setRight((p) => ({ ...p, kycReject: e.blocked })); break
         case "batch_opened": setRight((p) => ({ ...p, batchId: e.batchId, R: e.R })); break
         case "orders_submitted": setRight((p) => ({ ...p, aoid: e.aoid, boid: e.boid, ciphertext: e.ciphertext, bytes: e.bytes })); break
         case "bot_attempt": setRight((p) => ({ ...p, attempts: [...p.attempts, e as Attempt] })); break
@@ -63,8 +67,9 @@ export default function Demo() {
           <Eyebrow tone="revealed">Live · Stellar testnet</Eyebrow>
           <h1 className="mt-3 text-h2">Frontrunner showdown</h1>
           <p className="mt-3 max-w-xl text-text-dim">
-            One bot, two markets. On the left it sandwiches a visible order. On the right it tries the same against a
-            timelock-sealed Stelvin batch — and fails every read until the batch clears at one fair price.
+            One bot, two markets — an institutional tUSTB/USDC block trade. On the left the order is visible and gets
+            sandwiched. On the right it's a permissioned, timelock-sealed Stelvin batch — the bot fails every read
+            until it clears at one fair price near par.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -95,17 +100,17 @@ export default function Demo() {
           badge="Simulated AMM"
           subtitle="Real constant-product mechanics — the order is visible in the mempool."
         >
-          {!left && <Empty>Press run. The bot will sandwich a visible order.</Empty>}
+          {!left && <Empty>Press run. The bot will sandwich a visible block order.</Empty>}
           {left && (
             <>
               <Meta>
-                pool {left.rx} X / {left.ru} USDC · alice broadcasts a <b className="text-text">visible</b> buy with {left.aliceUSDC} USDC
+                pool {left.rx} tUSTB / {left.ru} USDC · a desk broadcasts a <b className="text-text">visible</b> buy with {left.aliceUSDC} USDC
               </Meta>
               {left.botProfit !== undefined ? (
                 <ol className="mt-4 space-y-2.5">
-                  <Step n="1" label="bot front-runs" detail={`buys ${left.xBot} X → price up`} />
-                  <Step n="2" label="alice fills worse" detail={`gets ${left.xAlice} X (fair was ${left.xFair} X)`} />
-                  <Step n="3" label="bot back-runs" detail={`sells ${left.xBot} X → ${left.usdcBack} USDC`} />
+                  <Step n="1" label="bot front-runs" detail={`buys ${left.xBot} tUSTB → price up`} />
+                  <Step n="2" label="desk fills worse" detail={`gets ${left.xAlice} tUSTB (fair was ${left.xFair})`} />
+                  <Step n="3" label="bot back-runs" detail={`sells ${left.xBot} tUSTB → ${left.usdcBack} USDC`} />
                 </ol>
               ) : (
                 <Meta className="mt-4 animate-pulse">sandwiching…</Meta>
@@ -114,7 +119,7 @@ export default function Demo() {
                 <ResultBar tone="attack">
                   <span>bot profit <b className="text-attack">+{left.botProfit} USDC</b></span>
                   <span className="text-text-muted">·</span>
-                  <span>alice lost <b className="text-text-dim">{left.aliceLoss} X</b> to the sandwich</span>
+                  <span>desk lost <b className="text-text-dim">{left.aliceLoss} tUSTB</b> to the sandwich</span>
                 </ResultBar>
               )}
             </>
@@ -131,9 +136,20 @@ export default function Demo() {
         >
           {!right.batchId && <Empty>Press run. The same bot will try to read a sealed order.</Empty>}
 
+          {right.permissioned && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Pill tone="sealed">Permissioned · KYC</Pill>
+              {right.kycReject && (
+                <span className="inline-flex items-center gap-1.5 rounded-pill border border-revealed/40 bg-revealed/10 px-3 py-1 font-mono text-xs text-revealed">
+                  ✓ un-KYC'd address rejected on-chain
+                </span>
+              )}
+            </div>
+          )}
+
           {right.batchId !== undefined && (
             <Meta>
-              batch #{right.batchId} · reveals at drand round <b className="text-text">{right.R}</b> · orders sealed with tlock
+              batch #{right.batchId} · reveals at drand round <b className="text-text">{right.R}</b> · tUSTB/USDC sealed with tlock
             </Meta>
           )}
 
@@ -189,9 +205,14 @@ export default function Demo() {
                 <RevealBurst />
                 <div className="relative">
                   <div className="font-mono text-[11px] uppercase tracking-widest text-revealed">settled · uniform price</div>
-                  <div className="mt-1 text-h2 font-bold text-revealed">P* = {right.price}</div>
+                  <div className="mt-1 text-h2 font-bold text-revealed">P* = ${right.price}</div>
+                  {right.nav !== undefined && (
+                    <div className="mt-1 font-mono text-xs text-text-muted">
+                      cleared within {right.navDeviationPct}% of NAV (${right.nav?.toFixed(2)} par) — at par, zero MEV
+                    </div>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-text-dim">
-                    <span>alice <b className="text-text">+{right.aliceGainX} XLM</b></span>
+                    <span>alice <b className="text-text">+{right.aliceGainBase} {right.base ?? "tUSTB"}</b></span>
                     <span>bob <b className="text-text">+{right.bobGainUsdc} USDC</b></span>
                     <span>matched <b className="text-text">{right.matched}</b></span>
                   </div>
@@ -209,9 +230,8 @@ export default function Demo() {
                 <span className="text-text-muted">🔗 Noether oracle reference unavailable (non-blocking)</span>
               ) : (
                 <span className="text-text-dim">
-                  🔗 <b className="text-text">Noether</b> SEP-40 fair value{" "}
-                  <b className="text-text">${right.oracle.price?.toFixed(4)}</b> ({right.oracle.source}) · Stelvin cleared within{" "}
-                  <b className="text-revealed">{right.oracle.deviationPct}%</b> → fair
+                  🔗 <b className="text-text">Noether</b> SEP-40 oracle live{" "}
+                  <b className="text-text">${right.oracle.price?.toFixed(4)}</b> ({right.oracle.source}) — composing with Stellar's oracle layer
                 </span>
               )}
             </div>

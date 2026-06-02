@@ -293,6 +293,39 @@ is meaningful — the prices are **not** oracle-derived, preserving non-blocking
 still comes from sealed orders. On-chain soft-guardrail (reject settles far from
 the oracle) is roadmap, not v1.
 
+### ADR-017 — RWA pivot: asset-agnostic core + backward-compatible KYC allowlist
+**Decision.** Position Stelvin as a **fair execution venue / on-chain dark pool for
+tokenized RWAs and institutional flows** on Stellar — the segment actually driving
+Stellar's DeFi growth (RWA/treasuries + institutions; TVL ~7× YoY, institutional
+wallets +51% in 2025), which is also the segment that most needs intent privacy and
+fair execution. The core mechanism is unchanged: the contract is **asset-agnostic**
+(`asset_base` is any token address), so the demo simply points `asset_base` at a
+tokenized US T-bill (`tUSTB`) traded vs USDC near **par/NAV**.
+**One contract addition (and only one):** a **backward-compatible permissioned KYC
+allowlist**, because RWA tokens are permissioned (held only by vetted addresses).
+- Storage: `Permissioned` (bool, default unset = false) + `Allowed(Address)`.
+- `set_permissioned(enabled)` and `set_kyc(trader, allowed)` — admin-only
+  (the RWA issuer / compliance role); emit `PermissionedSet` / `KycSet`.
+- `deposit_funds` / `submit_order` call `require_kyc`, which is a **no-op while
+  permissioned is off**. So the existing 12 tests and the open demo path behave
+  *identically*; 5 new tests cover the gate (allowlisted passes, un-KYC'd deposit
+  and submit are rejected, revocation re-blocks, default-off is open). 17/17 green.
+**Why not auditor selective disclosure.** Tempting for "compliance," but it does
+**not** fit Stelvin's timelock: privacy here is *temporal* (hidden from everyone
+until R, then public to everyone) — there is no "hide from the public, show an
+auditor" window. Claiming it would be over-reach and break our honesty stance.
+Instead the compliance posture is **post-trade full transparency** (anyone can
+recompute the decryption from the public `sigma_R`) plus the on-chain KYC gate —
+both real and auditable.
+**Trade-off / honest status.** This makes the RWA framing *real* (an un-KYC'd
+address is rejected on-chain in the demo), not cosmetic — but going from prototype
+to product still needs real liquidity/counterparties, anchor/RWA-issuer
+integration, and a hardened compliance layer. Those are roadmap, stated plainly.
+**Market read (sourced, in SUBMISSION.md).** Direct comp CoW Protocol (same
+primitive) ~$93.5M mcap / ~$15.6M/yr revenue evidences a ~$100M-scale ceiling;
+Stellar-native SAM is small today (~$161M TVL) but fast-growing in exactly this
+segment. No invented valuation.
+
 ## 5. Contract reference (BatchGate + Escrow)
 
 **Storage (`DataKey`)**
@@ -303,18 +336,22 @@ the oracle) is roadmap, not v1.
 - `Clearing(u32)` → `{ batch_id, price, matched_volume, settled_at }`
 - `Balance(Address, Address)` → `i128` — standing balance per (trader, asset)
 - `Submitted(u32, Address)` → `bool` — one-order-per-trader-per-batch guard
+- `Permissioned` → `bool` (default false) — RWA/KYC gate toggle (ADR-017)
+- `Allowed(Address)` → `bool` — KYC allowlist for permissioned mode (ADR-017)
 
 **Functions**
 | fn | auth | purpose |
 |---|---|---|
 | `__constructor(admin, asset_base, asset_quote, relay)` | deploy | one-time config |
-| `deposit_funds(trader, asset, amount)` | trader | fund standing balance (SAC pull) |
+| `deposit_funds(trader, asset, amount)` | trader | fund standing balance (SAC pull); KYC-gated when permissioned |
 | `withdraw(trader, asset, amount)` | trader | withdraw free balance (SAC push) |
+| `set_permissioned(enabled)` | admin | toggle RWA/KYC mode (default off) — ADR-017 |
+| `set_kyc(trader, allowed)` | admin | KYC allowlist add/remove (issuer/compliance role) — ADR-017 |
 | `create_batch(reveal_round) -> u32` | admin | open a batch for round R |
-| `submit_order(trader, batch_id, ciphertext) -> u64` | trader | sealed order; requires funded balance; one per trader per batch |
+| `submit_order(trader, batch_id, ciphertext) -> u64` | trader | sealed order; requires funded balance; one per trader per batch; KYC-gated when permissioned |
 | `lock_batch(batch_id)` | permissionless | freeze once R available |
 | `settle(batch_id, sigma_r, revealed[])` | permissionless | (a)+(b) gate, (e) match, (f) settle |
-| `get_batch / get_order / get_clearing / get_clearing_price / get_balance` | view | reads |
+| `get_batch / get_order / get_clearing / get_clearing_price / get_balance / get_permissioned / is_kyc` | view | reads |
 
 **`settle` steps (mapping to the design)**
 - **(a)+(b)** `committed = relay.get(R)`; `assert sha256(sigma_r) == committed`
@@ -328,6 +365,7 @@ the oracle) is roadmap, not v1.
 **Events** (ADR-015): `BatchOpened(batch_id, reveal_round)`,
 `OrderSubmitted(batch_id, order_id, trader)`,
 `BatchSettled(batch_id, price, matched_volume)` — all topic-indexed by `batch_id`.
+Plus (ADR-017): `PermissionedSet(enabled)`, `KycSet(trader, allowed)`.
 
 ---
 
@@ -367,9 +405,9 @@ the oracle) is roadmap, not v1.
 ## 7. MVP scope
 
 **In:**
-- BatchGate + Escrow Soroban contract — **done**, 12/12 unit tests, wasm builds
-  (23,723 bytes, 12 exported functions), `wasm32v1-none`.
-- Dual-asset X/USDC, standing balances, sealed orders, on-chain uniform-price
+- BatchGate + Escrow Soroban contract — **done**, 17/17 unit tests, wasm builds
+  (26,099 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate (ADR-017).
+- Dual-asset (RWA `tUSTB`/USDC in the demo), standing balances, sealed orders, on-chain uniform-price
   matching, conservation-safe + revert-proof settlement, drand timing+key gate,
   reveal dedup, lifecycle events.
 - Off-chain settler (fetch raw sigma → tlock decrypt batch → call `settle`).
@@ -397,8 +435,8 @@ the oracle) is roadmap, not v1.
 - **M1 — Contract (done).** `__constructor` + storage, `deposit_funds`/`withdraw`,
   `create_batch`/`submit_order` (balance guard), `lock_batch`, `settle` +
   `match_and_settle` (global feasibility scalar, floor-then-trim), reveal dedup,
-  lifecycle events, one-order-per-trader guard. 12 tests incl. conservation +
-  no-revert + dedup + per-trader; wasm release build green.
+  lifecycle events, one-order-per-trader guard, RWA/KYC allowlist gate (ADR-017).
+  17 tests incl. conservation + no-revert + dedup + per-trader + KYC; wasm release build green.
 - **M2 — Deploy & wire (done).** Two test SACs (X, USDC) + BatchGate deployed to
   testnet against the live relay; full end-to-end CLI smoke-test **passed and is
   reproducible** via `scripts/deploy_and_smoke.sh` (one command:

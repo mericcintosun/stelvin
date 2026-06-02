@@ -166,6 +166,22 @@ pub struct BatchSettled {
     pub matched_volume: i128,
 }
 
+/// RWA / institutional gating (ADR-017). Toggling permissioned mode and the
+/// KYC allowlist are admin-only and never touch matching or settlement — they
+/// only gate *who* may fund/submit. Emitting them keeps the compliance state
+/// publicly auditable (consistent with post-trade transparency).
+#[contractevent]
+pub struct PermissionedSet {
+    pub enabled: bool,
+}
+
+#[contractevent]
+pub struct KycSet {
+    #[topic]
+    pub trader: Address,
+    pub allowed: bool,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -182,6 +198,11 @@ pub enum DataKey {
     /// Marks that a trader already has an order in a batch (one per batch in v1,
     /// which makes the settle no-revert guarantee total — see ADR-010/014).
     Submitted(u32, Address),
+    /// RWA gate (ADR-017): when true, `deposit_funds` / `submit_order` require an
+    /// allowlisted (KYC'd) trader. Unset = false = open (backward-compatible).
+    Permissioned,
+    /// KYC allowlist for permissioned mode: (trader) -> allowed.
+    Allowed(Address),
 }
 
 /// Internal matching record (not persisted).
@@ -224,6 +245,32 @@ fn set_balance(env: &Env, trader: &Address, asset: &Address, amount: i128) {
     env.storage()
         .persistent()
         .extend_ttl(&key, MIN_TTL, EXTEND_TO);
+}
+
+/// RWA gate (ADR-017). Default off → fully backward-compatible.
+fn is_permissioned(env: &Env) -> bool {
+    env.storage()
+        .instance()
+        .get(&DataKey::Permissioned)
+        .unwrap_or(false)
+}
+
+fn is_allowed(env: &Env, trader: &Address) -> bool {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Allowed(trader.clone()))
+        .unwrap_or(false)
+}
+
+/// In permissioned mode, only allowlisted (KYC'd) traders may fund or submit.
+/// A no-op when permissioned is off, so the open demo path is unchanged.
+fn require_kyc(env: &Env, trader: &Address) {
+    if is_permissioned(env) {
+        assert!(
+            is_allowed(env, trader),
+            "trader not on the KYC allowlist (permissioned mode)"
+        );
+    }
 }
 
 fn load_batch(env: &Env, batch_id: u32) -> Batch {
@@ -310,6 +357,7 @@ impl BatchGate {
     /// Pulls tokens via the SAC; requires the trader's auth.
     pub fn deposit_funds(env: Env, trader: Address, asset: Address, amount: i128) {
         trader.require_auth();
+        require_kyc(&env, &trader);
         assert!(amount > 0, "amount must be positive");
         let (base, quote) = assets(&env);
         assert!(asset == base || asset == quote, "unknown asset");
@@ -336,6 +384,37 @@ impl BatchGate {
 
         let tok = token::TokenClient::new(&env, &asset);
         tok.transfer(&env.current_contract_address(), &trader, &amount);
+    }
+
+    // -----------------------------------------------------------------------
+    // RWA / institutional gating (ADR-017) — admin-only, backward-compatible.
+    // Default off: the open, permissionless demo path is unchanged. When on,
+    // only KYC-allowlisted traders may fund/submit. This makes the permissioned
+    // nature of tokenized RWAs real (RWA tokens are issued only to vetted
+    // holders) without touching matching, settlement, or any core invariant.
+    // -----------------------------------------------------------------------
+
+    /// Toggle permissioned (RWA/KYC) mode. When enabled, `deposit_funds` and
+    /// `submit_order` require an allowlisted trader.
+    pub fn set_permissioned(env: Env, enabled: bool) {
+        load_admin(&env).require_auth();
+        env.storage()
+            .instance()
+            .set(&DataKey::Permissioned, &enabled);
+        env.storage().instance().extend_ttl(MIN_TTL, EXTEND_TO);
+        PermissionedSet { enabled }.publish(&env);
+    }
+
+    /// Add/remove a trader on the KYC allowlist (the RWA issuer / compliance
+    /// role). No effect on price, matching, or settlement.
+    pub fn set_kyc(env: Env, trader: Address, allowed: bool) {
+        load_admin(&env).require_auth();
+        let key = DataKey::Allowed(trader.clone());
+        env.storage().persistent().set(&key, &allowed);
+        env.storage()
+            .persistent()
+            .extend_ttl(&key, MIN_TTL, EXTEND_TO);
+        KycSet { trader, allowed }.publish(&env);
     }
 
     // -----------------------------------------------------------------------
@@ -382,6 +461,7 @@ impl BatchGate {
     /// the contract cannot read it.
     pub fn submit_order(env: Env, trader: Address, batch_id: u32, ciphertext: Bytes) -> u64 {
         trader.require_auth();
+        require_kyc(&env, &trader);
 
         let mut batch = load_batch(&env, batch_id);
         assert!(batch.status == Status::Open, "batch not open");
@@ -539,6 +619,16 @@ impl BatchGate {
 
     pub fn get_balance(env: Env, trader: Address, asset: Address) -> i128 {
         balance_of(&env, &trader, &asset)
+    }
+
+    /// Whether permissioned (RWA/KYC) mode is on.
+    pub fn get_permissioned(env: Env) -> bool {
+        is_permissioned(&env)
+    }
+
+    /// Whether `trader` is on the KYC allowlist.
+    pub fn is_kyc(env: Env, trader: Address) -> bool {
+        is_allowed(&env, &trader)
     }
 }
 
