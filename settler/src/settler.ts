@@ -15,13 +15,20 @@ import {
 async function main() {
   console.log("gate:", E.GATE, "| chain:", CHAIN)
 
+  // Permissioned (RWA/KYC) mode: allowlist the desks. Idempotent + admin-only.
+  console.log("\n[0] permissioned (KYC) mode + allowlist alice/bob")
+  inv(E.GATE, "admin", `set_permissioned --enabled true`)
+  inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
+  inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
+
   const R = relayLatestRound() + 20
   console.log(`\n[1] create_batch(R=${R})`)
   const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
   console.log("    batch_id =", batchId)
 
-  const aliceOrder: Order = { side: "Buy", amount: 100, limit_price: 12_000_000 }
-  const bobOrder: Order = { side: "Sell", amount: 100, limit_price: 8_000_000 }
+  // tUSTB/USDC block trade near par ($1.00 NAV): buy 1.001, sell 1.000 → P*=1.000.
+  const aliceOrder: Order = { side: "Buy", amount: 100, limit_price: 10_010_000 }
+  const bobOrder: Order = { side: "Sell", amount: 100, limit_price: 10_000_000 }
 
   console.log("\n[2] encrypt to R + submit_order (real tlock ciphertext)")
   const aHex = await encryptOrder(R, aliceOrder)
@@ -63,9 +70,10 @@ async function main() {
   ])
   inv(E.GATE, "admin", `settle --batch_id ${batchId} --sigma_r ${sigma} --revealed '${revealed}'`)
   console.log("    clearing:", inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)?.[0])
-  if (getBalance(E.ALICE, E.X_SAC) - aX0 !== 100 || getBalance(E.BOB, E.USDC_SAC) - bU0 !== 80)
+  // P*=1.000 (par): alice +100 tUSTB, bob +100 USDC.
+  if (getBalance(E.ALICE, E.X_SAC) - aX0 !== 100 || getBalance(E.BOB, E.USDC_SAC) - bU0 !== 100)
     throw new Error("unexpected settlement deltas")
-  console.log("\n✅ M3 PASSED — real tlock ciphertext settled; unreadable pre-R, decrypted & matched post-R")
+  console.log("\n✅ M3 PASSED — real tlock ciphertext settled at par; unreadable pre-R, decrypted & matched post-R")
 }
 
 main().catch((e) => { console.error("❌", e); process.exit(1) })

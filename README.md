@@ -1,9 +1,10 @@
 # Stelvin
 
-**A sealed-bid batch DEX on Stellar Soroban: orders are drand-timelock-encrypted
-and unreadable — by anyone, including the operator and the settler — until they
-all clear at one uniform price. MEV isn't promised away; it's cryptographically
-impossible to react to.**
+**A fair execution venue — an on-chain dark pool — for tokenized RWAs and
+institutional flows on Stellar Soroban. Orders are drand-timelock-encrypted and
+unreadable by anyone (operator and settler included) until they all clear at one
+uniform price. MEV isn't promised away; it's cryptographically impossible to
+react to.**
 
 > Tracks: **Main** (automatic) + **Privacy** (primary). Build on Stellar — IBW 2026.
 > Judge-facing writeup: **[`SUBMISSION.md`](./SUBMISSION.md)** · deep rationale:
@@ -48,8 +49,13 @@ demo in [`settler/`](./settler).
 
 - ✅ **M1 — Contract.** `deposit_funds`/`withdraw`, `create_batch`, `submit_order`,
   `lock_batch`, `settle` + on-chain matching, reveal dedup, one-order-per-trader
-  guard, lifecycle events. **12/12 unit tests** (conservation + no-revert + dedup).
-  Wasm **23,723 bytes**, `wasm32v1-none`.
+  guard, lifecycle events, **backward-compatible permissioned KYC allowlist** (RWA).
+  **17/17 unit tests** (conservation + no-revert + dedup + KYC gate). `wasm32v1-none`.
+- ✅ **RWA pivot.** Asset-agnostic contract → demo trades a tokenized US T-bill
+  (tUSTB) vs USDC near par; permissioned (KYC) mode allowlists desks and rejects
+  un-KYC'd addresses on-chain. Positioned as an **on-chain dark pool for tokenized
+  RWAs & institutional flows**. See [`SUBMISSION.md`](./SUBMISSION.md) for the
+  real-world use cases + market & business model (with sources).
 - ✅ **M2 — Testnet.** Deployed against the live Drand-Relay; one-command e2e smoke
   test (`scripts/deploy_and_smoke.sh`). Sigma encoding (`sha256(48-byte compressed
   sigma) == relay.get(R)`) CLI-verified.
@@ -64,7 +70,7 @@ demo in [`settler/`](./settler).
 ## Run & verify
 
 ```sh
-cargo test -p batch-gate                  # 12/12 contract tests
+cargo test -p batch-gate                  # 17/17 contract tests
 bash scripts/deploy_and_smoke.sh          # deploy + end-to-end on testnet (one command)
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```

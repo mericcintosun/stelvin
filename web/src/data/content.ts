@@ -1,6 +1,6 @@
 // Single source of truth for site copy + on-chain facts.
 // Every address/number here is real and traceable to SUBMISSION.md / DECISIONS.md
-// / .stelvin/testnet.env. Keep this in sync with those — no marketing drift.
+// / .stelvin/testnet.env, or to the cited public sources (MARKET). No drift.
 
 export const LINKS = {
   github: "https://github.com/", // ← set to the public repo URL before launch
@@ -9,22 +9,24 @@ export const LINKS = {
 }
 
 export const ADDRESSES = {
-  batchGate: "CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA",
+  // Permissioned RWA BatchGate (tUSTB/USDC) — deployed on testnet.
+  batchGate: "CBUH3NCNUXCLIBSHNAH2NJFCXHMGUWCRT2QTHDCLSH55MLPOCSDF44DP",
   drandRelay: "CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM",
   noetherOracle: "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4",
-  xSac: "CCYIRVXHZUV2XWHZM4G7IGN65PYDQ76GBJTTUAQYENEAIBI6WEMG5BG5",
-  usdcSac: "CAS6SHC4M3SVTAIPGF2WKM6TDMK76AOTUI65ADXBPRDMI2JFWMQCL2L7",
 }
 
 export const contractUrl = (id: string) => `${LINKS.explorer}/contract/${id}`
 export const shortAddr = (id: string) => `${id.slice(0, 4)}…${id.slice(-4)}`
 
-// The transparent-AMM sandwich figures are stable across SUBMISSION.md and the
-// committed demo/sample-run.txt (the AMM math is identical in both).
+// RWA framing: the demo trades a tokenized US T-bill (tUSTB) vs USDC near par.
+export const RWA = { base: "tUSTB", quote: "USDC", navLabel: "$1.00 NAV" }
+
+// Transparent-AMM sandwich figures — stable across SUBMISSION.md and the
+// committed demo/sample-run.txt (the AMM math is identical).
 export const SANDWICH = {
   botProfit: "+315.07",
   victimLoss: "268.07",
-  asset: "X",
+  asset: "tUSTB",
   quote: "USDC",
 }
 
@@ -32,14 +34,14 @@ export const CRYPTO = {
   scheme: "bls-unchained-g1-rfc9380",
   beacon: "drand quicknet",
   period: "3s",
-  tests: "12 / 12",
-  wasmBytes: "23,723",
+  tests: "17 / 17",
+  wasmBytes: "26,099",
   target: "wasm32v1-none",
 }
 
 export const HERO = {
   tagline: ["Sealed orders.", "One fair price.", "Zero front-running."],
-  sub: "A sealed-bid batch DEX on Stellar. Orders are timelock-encrypted and unreadable by anyone — us included — until they clear at one uniform price. MEV isn't promised away; it's cryptographically impossible to react to.",
+  sub: "A fair execution venue — an on-chain dark pool — for tokenized RWAs and institutional flows on Stellar. Orders are timelock-encrypted and unreadable by anyone (us included) until they clear at one uniform price. MEV isn't promised away; it's cryptographically impossible to react to.",
   cta: "Watch the live demo",
 }
 
@@ -47,7 +49,7 @@ export const TWO_LAYERS = [
   {
     state: "sealed" as const,
     title: "Timelock encryption",
-    body: "Traders encrypt {side, amount, limit price} to a future drand round R with tlock (BLS12-381 IBE). No one — not the operator, not the settler — can read an order until the beacon publishes R. The key is held by no one.",
+    body: "Desks encrypt {side, amount, limit price} to a future drand round R with tlock (BLS12-381 IBE). No one — not the operator, not the settler — can read a block order until the beacon publishes R. The key is held by no one.",
     tag: "hides order contents",
   },
   {
@@ -59,16 +61,16 @@ export const TWO_LAYERS = [
 ]
 
 export const HOW_STEPS = [
-  { n: "01", title: "Seal", body: "Encrypt your order to a future drand round R and submit the opaque ciphertext on-chain. It's unreadable by everyone." },
+  { n: "01", title: "Seal", body: "Encrypt your block order to a future drand round R and submit the opaque ciphertext on-chain. It's unreadable by everyone." },
   { n: "02", title: "Wait for round R", body: "The decryption key is a drand beacon signature held by no one — it only exists once the network publishes round R." },
   { n: "03", title: "Reveal & clear", body: "At R the batch is decrypted and settles on-chain at one uniform price. Same price for everyone, no ordering edge." },
 ]
 
 export const WHY_STELLAR = [
+  { title: "Where RWAs actually live", body: "Stellar's DeFi growth is driven by tokenized treasuries and institutions — the exact users who most need intent privacy and fair execution." },
   { title: "Native BLS12-381", body: "Soroban host functions make the timelock primitive practical on-chain — the gate exists because of capabilities unique to this network." },
-  { title: "Live on-chain BLS-verifying relay", body: "The drand relay runs a full BLS pairing check before storing each round, so even its operator can't commit a forged key." },
-  { title: "~5s finality, sub-cent fees", body: "Fast, cheap settlement makes frequent batch auctions practical instead of theoretical." },
-  { title: "Native USDC", body: "Real-world settlement rails — payroll, institutional flow — where fairness is a requirement, not a nice-to-have." },
+  { title: "Live BLS-verifying relay", body: "The drand relay runs a full pairing check before storing each round, so even its operator can't commit a forged key." },
+  { title: "~5s finality, native USDC", body: "Fast, cheap settlement and real-world rails — payroll, settlement, institutional flow — where fairness is a requirement." },
 ]
 
 export const HIDDEN = ["Order side (buy / sell)", "Order amount", "Limit price"]
@@ -80,9 +82,40 @@ export const TRUST = [
   { label: "Settlement integrity", verdict: "v1-optimistic, publicly auditable", body: "The settler is trusted to decrypt & include orders; because sigma_R is public after R, anyone can recompute the full decryption and detect a misreport. On-chain enforcement is roadmap." },
 ]
 
+// Permissioned / RWA compliance posture (ADR-017).
+export const COMPLIANCE = {
+  title: "Compliance posture",
+  body: "RWA tokens are permissioned — held only by vetted addresses. Stelvin runs an on-chain KYC allowlist (permissioned mode) so only approved desks can fund and submit. Privacy is temporal: hidden until R, then fully public — so post-trade everything is auditable. We do not claim auditor-only selective disclosure; that doesn't fit a timelock.",
+}
+
+// Real-world use cases, strongest → most speculative (honest ordering).
+export const USE_CASES: { rank?: string; title: string; body: string }[] = [
+  { rank: "Strongest", title: "On-chain dark pool for RWA & institutional flows", body: "A fund/treasury rotating a large tokenized position ($1M T-bill → USDC) leaks intent if it broadcasts. Traditional finance built dark pools (~15% of US equity volume) for exactly this. Stelvin is the on-chain version — fair, sealed, large-block." },
+  { title: "Fair stablecoin / FX conversion", body: "Stellar's core is cross-border payments and FX. Front-running the rate on a large USDC↔EURC conversion is real loss. A sealed batch gives institutions a fair mid-price venue — Stellar's home turf." },
+  { title: "Fair RWA primary issuance", body: "Sealed-batch price discovery for new asset launches / allocations, defusing sniping and front-running at issuance." },
+  { title: "Proactive retail MEV protection", body: "Marginal on Stellar today, but DEX volume is ~$3.5T/yr and growing. As Soroban DeFi scales, fair-by-default matters before the damage arrives." },
+]
+
+// Market & business — every figure carries a source (see SUBMISSION.md).
+export const MARKET = [
+  { tier: "TAM — the problem", value: "$1.3B–$3B+/yr", body: "Value extracted by MEV. ~1.2% of DEX trades are sandwiched (avg 0.41% loss); DEX volume ~$3.5T/yr. Even a few bps of protected volume is large.", src: "Flashbots · Gate" },
+  { tier: "Comp — what a winner earns", value: "~$93.5M mcap", body: "CoW Protocol — the same primitive (batch auction + solver) — ~$15.6M/yr protocol revenue. Proof a sealed/batch venue can be a ~$100M-scale protocol.", src: "CoinGecko · CMC" },
+  { tier: "SAM — Stellar today (honest)", value: "~$161M TVL", body: "Stellar DeFi TVL (May 2026), ~7× YoY, RWA/institutional-driven; institutional wallets +51% in 2025. A small but fast-growing base — and the segment that cares most about intent privacy.", src: "DefiLlama" },
+  { tier: "SOM — near-term wedge", value: "RWA dark pool", body: "Become Stellar's fair-execution venue as Soroban DeFi scales, entering through institutional / RWA block trades first.", src: "—" },
+]
+
+export const REVENUE = [
+  "Trading fee on matched volume (a few bps) — primary, like CoW",
+  "Surplus capture — share of the price improvement vs a transparent venue",
+  "Institutional / B2B venue access (block-trade desk onboarding)",
+  "White-label — license the sealed-batch engine to anchors & RWA platforms",
+  "Protocol token — fee capture / governance",
+]
+
 export const CREDIBILITY = [
-  `${CRYPTO.tests} unit tests`,
+  `${CRYPTO.tests} tests`,
   "Live on testnet",
+  "Permissioned KYC gate",
   "Verifiable on stellar.expert",
   "Open source · MIT",
   "Main + Privacy tracks",

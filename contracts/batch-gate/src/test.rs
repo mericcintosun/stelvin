@@ -481,3 +481,83 @@ fn test_admin_is_set() {
     let _ = s.contract.create_batch(&reveal_round);
     let _ = &s.admin;
 }
+
+// ── RWA / KYC gate (ADR-017) ────────────────────────────────────────────────
+
+/// Default state is open (permissioned off): an arbitrary funded trader works
+/// exactly as before — the gate is fully backward-compatible.
+#[test]
+fn test_permissioned_default_off_is_open() {
+    let s = setup();
+    assert!(!s.contract.get_permissioned(), "permissioned defaults to off");
+    let alice = Address::generate(&s.env);
+    s.quote_admin.mint(&alice, &1_000);
+    // No KYC set, permissioned off → deposit succeeds (legacy behavior).
+    s.contract.deposit_funds(&alice, &s.quote, &500);
+    assert_eq!(s.contract.get_balance(&alice, &s.quote), 500);
+}
+
+/// When permissioned is on, an allowlisted (KYC'd) trader can fund and submit.
+#[test]
+fn test_permissioned_allows_listed() {
+    let s = setup();
+    let env = &s.env;
+    s.contract.set_permissioned(&true);
+    assert!(s.contract.get_permissioned());
+
+    let alice = Address::generate(env);
+    s.quote_admin.mint(&alice, &1_000);
+    s.contract.set_kyc(&alice, &true);
+    assert!(s.contract.is_kyc(&alice));
+
+    s.contract.deposit_funds(&alice, &s.quote, &1_000);
+    assert_eq!(s.contract.get_balance(&alice, &s.quote), 1_000);
+
+    let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+    let batch_id = s.contract.create_batch(&reveal_round);
+    let ct = Bytes::from_slice(env, b"ct");
+    let _ = s.contract.submit_order(&alice, &batch_id, &ct);
+}
+
+/// When permissioned is on, a non-allowlisted trader cannot deposit.
+#[test]
+#[should_panic(expected = "KYC allowlist")]
+fn test_permissioned_blocks_unlisted_deposit() {
+    let s = setup();
+    s.contract.set_permissioned(&true);
+    let mallory = Address::generate(&s.env);
+    s.quote_admin.mint(&mallory, &1_000);
+    s.contract.deposit_funds(&mallory, &s.quote, &500); // not on allowlist → reject
+}
+
+/// The submit guard is independent: fund while open, then turn permissioning on
+/// without allowlisting the trader → submit is rejected.
+#[test]
+#[should_panic(expected = "KYC allowlist")]
+fn test_permissioned_blocks_unlisted_submit() {
+    let s = setup();
+    let env = &s.env;
+    let mallory = Address::generate(env);
+    s.quote_admin.mint(&mallory, &1_000);
+    s.contract.deposit_funds(&mallory, &s.quote, &1_000); // permissioned off → ok
+    s.contract.set_permissioned(&true); // now on; mallory not allowlisted
+    let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+    let batch_id = s.contract.create_batch(&reveal_round);
+    let ct = Bytes::from_slice(env, b"ct");
+    s.contract.submit_order(&mallory, &batch_id, &ct);
+}
+
+/// Revoking KYC re-blocks a trader (allowlist is mutable by the compliance role).
+#[test]
+#[should_panic(expected = "KYC allowlist")]
+fn test_kyc_revocation_blocks() {
+    let s = setup();
+    let env = &s.env;
+    s.contract.set_permissioned(&true);
+    let alice = Address::generate(env);
+    s.quote_admin.mint(&alice, &1_000);
+    s.contract.set_kyc(&alice, &true);
+    s.contract.deposit_funds(&alice, &s.quote, &500); // allowed
+    s.contract.set_kyc(&alice, &false); // revoked
+    s.contract.deposit_funds(&alice, &s.quote, &100); // now rejected
+}

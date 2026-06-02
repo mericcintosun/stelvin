@@ -18,6 +18,12 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export type Order = { side: "Buy" | "Sell"; amount: number; limit_price: number }
 
+// RWA framing: the base asset is a tokenized US T-bill (tUSTB), quote is USDC.
+// RWA fair value ≈ NAV ≈ par ($1.00). Configurable; used only as a display-only
+// reference for "cleared at/near par" (never feeds settle — same discipline as
+// the Noether oracle below).
+export const RWA = { base: "tUSTB", quote: "USDC", nav: 1.0 }
+
 export function loadEnv(): Record<string, string> {
   const env: Record<string, string> = {}
   for (const line of readFileSync(ENVF, "utf8").split("\n")) {

@@ -5,6 +5,7 @@ import { navigate } from "../lib/router"
 import { LogoMark } from "../components/Logo"
 import {
   ADDRESSES,
+  COMPLIANCE,
   contractUrl,
   CREDIBILITY,
   CRYPTO,
@@ -12,11 +13,14 @@ import {
   HIDDEN,
   HOW_STEPS,
   LINKS,
+  MARKET,
   NOT_HIDDEN,
+  REVENUE,
   SANDWICH,
   shortAddr,
   TRUST,
   TWO_LAYERS,
+  USE_CASES,
   WHY_STELLAR,
 } from "../data/content"
 
@@ -28,9 +32,11 @@ export default function Landing() {
       <Solution />
       <LiveProof />
       <HowItWorks />
+      <UseCases />
       <WhyStellar />
       <Honesty />
       <Ecosystem />
+      <Market />
       <Credibility />
     </main>
   )
@@ -49,9 +55,9 @@ function Hero() {
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="mb-6 flex flex-wrap items-center gap-3"
           >
-            <Pill tone="sealed">Stellar Soroban</Pill>
+            <Pill tone="sealed">Tokenized RWA · Stellar</Pill>
             <Pill tone="live">Live on testnet</Pill>
-            <Pill tone="neutral">Privacy track</Pill>
+            <Pill tone="neutral">Main + Privacy</Pill>
           </motion.div>
 
           <h1 className="text-display font-bold">
@@ -397,6 +403,13 @@ function Honesty() {
           We do <span className="text-text">not</span> claim trustless on-chain reveal.
         </p>
       </Reveal>
+
+      <Reveal delay={0.05} className="mt-5">
+        <div className="rounded-[var(--radius)] border border-sealed/30 bg-sealed/5 p-5">
+          <div className="font-mono text-xs uppercase tracking-widest text-sealed-300">{COMPLIANCE.title}</div>
+          <p className="mt-2 text-sm text-text-dim">{COMPLIANCE.body}</p>
+        </div>
+      </Reveal>
     </Section>
   )
 }
@@ -479,6 +492,93 @@ function Credibility() {
           </p>
           <a href={LINKS.github} target="_blank" rel="noreferrer" className="sr-only">GitHub repository</a>
         </div>
+      </Reveal>
+    </Section>
+  )
+}
+
+/* ─────────────────────────── Use cases (RWA) ─────────────────────────── */
+function UseCases() {
+  return (
+    <Section id="use-cases">
+      <Reveal>
+        <Eyebrow tone="revealed">Real-world use cases</Eyebrow>
+        <h2 className="mt-4 max-w-3xl text-h2">Where this matters on Stellar — strongest first.</h2>
+        <p className="mt-4 max-w-2xl text-text-dim">
+          Stellar's DeFi growth is RWA- and institution-driven — the actors who most need intent privacy and
+          fair execution on large blocks.
+        </p>
+      </Reveal>
+      <div className="mt-10 grid gap-5 md:grid-cols-2">
+        {USE_CASES.map((u, i) => (
+          <Reveal key={u.title} delay={0.06 * i}>
+            <SpotlightCard tone={i === 0 ? "revealed" : "sealed"} className={i === 0 ? "ring-grad h-full" : "h-full"}>
+              <div className="flex items-center gap-2.5">
+                <span className="font-mono text-xs text-text-muted">{String(i + 1).padStart(2, "0")}</span>
+                {u.rank && <Pill tone="revealed">{u.rank}</Pill>}
+              </div>
+              <h3 className="mt-3 text-h3 font-semibold">{u.title}</h3>
+              <p className="mt-2 text-text-dim">{u.body}</p>
+            </SpotlightCard>
+          </Reveal>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+/* ─────────────────────────── Market & business ─────────────────────────── */
+function Market() {
+  return (
+    <Section id="market">
+      <Reveal>
+        <Eyebrow>Market &amp; business model</Eyebrow>
+        <h2 className="mt-4 max-w-3xl text-h2">Small on Stellar today — but the right segment, growing fast.</h2>
+        <p className="mt-4 max-w-2xl text-text-dim">
+          No invented valuation. The direct comp shows what a sealed-batch venue can be worth; we're honest the
+          Stellar-native market is early.
+        </p>
+      </Reveal>
+
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {MARKET.map((m, i) => (
+          <Reveal key={m.tier} delay={0.06 * i}>
+            <div className="h-full rounded-[var(--radius)] border border-border bg-surface/50 p-5">
+              <div className="font-mono text-[11px] uppercase tracking-widest text-text-muted">{m.tier}</div>
+              <div className="mt-1.5 text-h3 font-semibold text-revealed">{m.value}</div>
+              <p className="mt-2 text-sm text-text-muted">{m.body}</p>
+              <div className="mt-3 font-mono text-[11px] text-text-muted">src: {m.src}</div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+
+      <Reveal delay={0.1} className="mt-5">
+        <SpotlightCard tone="sealed" className="ring-grad">
+          <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
+            <div>
+              <h3 className="text-h3 font-semibold">Revenue model</h3>
+              <p className="mt-2 text-sm text-text-muted">
+                Proven by CoW Protocol — the same primitive — at ~$15.6M/yr protocol revenue.
+              </p>
+            </div>
+            <ul className="space-y-2.5">
+              {REVENUE.map((r) => (
+                <li key={r} className="flex items-start gap-2.5 text-sm text-text-dim">
+                  <span className="mt-1 text-revealed">▸</span> {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </SpotlightCard>
+      </Reveal>
+
+      <Reveal delay={0.12}>
+        <p className="mx-auto mt-5 max-w-3xl text-center text-sm text-text-muted">
+          Honest bottom line: Stelvin is early, and Stellar-native MEV is marginal today. The bet is proactive
+          infrastructure for the segment Stellar is actually winning — RWA &amp; institutional — before MEV scales.
+          The CoW comp (~$93.5M mcap / ~$15.6M/yr revenue) is real evidence of the ceiling.
+        </p>
       </Reveal>
     </Section>
   )
