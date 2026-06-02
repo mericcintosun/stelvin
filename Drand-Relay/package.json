@@ -1,0 +1,12 @@
+{
+  "name": "drand-relay",
+  "private": true,
+  "scripts": {
+    "fund": "curl \"https://friendbot.stellar.org?addr=$(stellar keys address beacon-feeder)\"",
+    "build:contracts": "cargo build --release --target wasm32v1-none",
+    "deploy:verifier": "npm run build:contracts && stellar contract deploy --wasm target/wasm32v1-none/release/drand_verifier.wasm --source beacon-feeder --network testnet",
+    "deploy:dice": "stellar contract deploy --wasm target/wasm32v1-none/release/dice_game.wasm --source beacon-feeder --network testnet -- --verifier $VERIFIER_CONTRACT_ID",
+    "feeder": "cd feeder && npm run feeder",
+    "dev": "cd demo && npm run dev"
+  }
+}

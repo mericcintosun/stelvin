@@ -1,0 +1,29 @@
+# Rust / Soroban
+/target/
+**/target/
+*.wasm
+.soroban/
+.stellar/
+
+# Node (frontend / settler / bot — added in later milestones)
+node_modules/
+dist/
+.pnp.*
+.yarn/
+*.tsbuildinfo
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+*.key
+identity*.toml
+secret*.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Keep editor workspace settings out by default (uncomment to share)
+.idea/
