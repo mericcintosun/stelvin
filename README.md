@@ -1,82 +1,95 @@
 # Stelvin
 
-**MEV-resistant, sealed-bid batch auction on Stellar Soroban.**
+**A sealed-bid batch DEX on Stellar Soroban: orders are drand-timelock-encrypted
+and unreadable — by anyone, including the operator and the settler — until they
+all clear at one uniform price. MEV isn't promised away; it's cryptographically
+impossible to react to.**
 
-Traders submit orders that are **drand-timelock-encrypted** — physically
-unreadable by anyone, including the operator and the settler, until a committed
-drand round `R`. At `R` the whole batch is revealed and clears at a **single
-uniform price computed on-chain**. Because no one can see an order before it
-clears, a frontrunner has nothing to react to: MEV isn't promised away, it's
-**cryptographically zero**.
+> Tracks: **Main** (automatic) + **Privacy** (primary). Build on Stellar — IBW 2026.
+> Judge-facing writeup: **[`SUBMISSION.md`](./SUBMISSION.md)** · deep rationale:
+> [`DECISIONS.md`](./DECISIONS.md).
 
-> Tracks: **Main** (automatic) + **Privacy** (primary). Built for Build on
-> Stellar — IBW 2026.
+## The demo, in one line
 
-## Why
+Run one frontrunner bot against two markets (`cd settler && npm run demo`, ~90s, live testnet):
 
-On a normal exchange, the moment you send an order, bots see it, jump ahead
-(frontrunning) and bend the price against you (sandwiching) — billions extracted
-per year. A bot can only react to an order it can *see*. Stelvin makes orders
-invisible until reveal, so there is nothing to frontrun. The guarantee is
-temporal and cryptographic: hidden until `R`, public after, by construction.
+- **Transparent AMM:** bot sandwiches a visible order → **+315 USDC profit, victim loses 268 X.**
+- **Stelvin (live):** the same bot pulls the real on-chain order, runs `tlock`
+  decrypt, and fails **5×** (*"too early … decryptable at round R"*) → the beacon
+  publishes R → the batch settles at **one uniform price** → **0 successful frontruns.**
+
+Recorded run: [`demo/sample-run.txt`](./demo/sample-run.txt).
+
+## How it works (two layers)
+
+1. **Timelock encryption** hides order *contents* before reveal — encrypted to a
+   future drand round `R` with `tlock` (BLS12-381 IBE). No one (operator/settler
+   included) can read an order until the beacon publishes `R`; the key is held by
+   no one.
+2. **Uniform-price batch clearing** removes intra-batch ordering advantage — at
+   `R` the whole batch clears at a single price the **contract** computes.
+
+**Precise claim:** *intra-batch* frontrunning and sandwiching are cryptographically
+eliminated. Cross-batch effects and auction game theory are ordinary public-market
+phenomena, not victim-specific MEV — we don't claim otherwise.
 
 ## Architecture
 
 | Layer | What | Tech |
 |---|---|---|
-| **Contract** | BatchGate + Escrow: sealed orders, standing-balance escrow, timing/key gate, on-chain uniform-price matching, conservation-safe settlement | Rust / Soroban |
-| **Encryption** | encrypt-to-round (timelock) | `tlock-js` (BLS12-381 IBE, drand quicknet) |
-| **Settler** | fetch raw `sigma_R` → decrypt batch → `settle()` | TypeScript |
-| **Oracle (external)** | timing + key authenticity | [Drand-Relay](./Drand-Relay) (deployed; we only call it) |
+| **Contract** (our work) | BatchGate + Escrow: sealed orders, standing-balance escrow, timing/key gate, on-chain uniform-price matching, conservation-safe settlement | Rust / Soroban |
+| **Encryption / settler** | encrypt-to-round, decrypt the batch at reveal, call `settle()` | `tlock-js` (BLS12-381 IBE, drand quicknet) + TS |
+| **Oracle (we only call)** | timing + key authenticity | [Drand-Relay](./Drand-Relay) — live, on-chain BLS-verifying (Kaan Kaçar's; not redeployed) |
 
-The contract lives in [`contracts/batch-gate`](./contracts/batch-gate). Full
-rationale, trade-offs, threat model, and milestones are in
-[`DECISIONS.md`](./DECISIONS.md).
+The contract is in [`contracts/batch-gate`](./contracts/batch-gate); the settler +
+demo in [`settler/`](./settler).
 
 ## Status
 
-- ✅ **Contract** — `__constructor`, `deposit_funds`/`withdraw`, `create_batch`,
-  `submit_order`, `lock_batch`, `settle` + on-chain matching, reveal dedup,
-  one-order-per-trader guard, lifecycle events. 12/12 unit tests (incl.
-  conservation + no-revert + dedup). Wasm builds (~23.7 KB, `wasm32v1-none`).
-- ✅ **Testnet (M2)** — deployed against the live Drand-Relay; one-command
-  end-to-end smoke test (`scripts/deploy_and_smoke.sh`): deposit → create batch →
-  sealed submit → drand round publishes → fetch sigma → settle → balances change
-  at the uniform clearing price. Encoding (`sha256(48-byte compressed sigma) ==
-  relay.get(R)`) CLI-verified.
-- ✅ **Settler (M3)** — [`settler/`](./settler): real `tlock-js` encrypt → submit →
-  (on-chain ciphertext **unreadable before round R**) → decrypt at reveal → settle,
-  verified end-to-end on testnet.
-- ✅ **Frontrunner-bot demo (M5)** — [`npm run demo`](./settler): two panels —
-  a labeled transparent-AMM sandwich (bot profits) vs Stelvin live, where the bot
-  genuinely can't decrypt the on-chain order until round R, then it settles at one
-  fair uniform price. Recorded run: [`demo/sample-run.txt`](./demo/sample-run.txt).
-- ⏳ Frontend · final docs/video.
+- ✅ **M1 — Contract.** `deposit_funds`/`withdraw`, `create_batch`, `submit_order`,
+  `lock_batch`, `settle` + on-chain matching, reveal dedup, one-order-per-trader
+  guard, lifecycle events. **12/12 unit tests** (conservation + no-revert + dedup).
+  Wasm **23,723 bytes**, `wasm32v1-none`.
+- ✅ **M2 — Testnet.** Deployed against the live Drand-Relay; one-command e2e smoke
+  test (`scripts/deploy_and_smoke.sh`). Sigma encoding (`sha256(48-byte compressed
+  sigma) == relay.get(R)`) CLI-verified.
+- ✅ **M3 — Settler.** Real `tlock-js` encrypt → submit → (on-chain ciphertext
+  **unreadable before R**) → decrypt at reveal → settle, verified e2e on testnet.
+- ✅ **M5 — Frontrunner-bot demo.** Two panels (sandwich vs sealed batch).
+- ⏳ **M4 — Web frontend** · final docs/video.
 
-## Build & test
+## Run & verify
 
 ```sh
-# unit tests
-cargo test -p batch-gate
-
-# release wasm
-stellar contract build
+cargo test -p batch-gate                  # 12/12 contract tests
+bash scripts/deploy_and_smoke.sh          # deploy + end-to-end on testnet (one command)
+cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```
+
+Deployed (testnet, inspectable on stellar.expert): BatchGate
+`CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA` · Drand-Relay
+`CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM`. Full address/figure
+table in [`SUBMISSION.md`](./SUBMISSION.md).
 
 ## Privacy disclosures (track requirement)
 
-- **Hidden:** order contents (side, amount, limit price).
+- **Hidden:** order *contents only* — side, amount, limit price.
+- **NOT hidden (stated up front):** participant addresses, order count, timing.
 - **From whom:** all participants and the operator/settler — until round `R`.
 - **Technique:** drand timelock encryption (`tlock`, Boneh-Franklin IBE / BLS12-381).
 - **Threat model:** mempool-watching frontrunning / sandwich / MEV adversary.
-- **Assumptions:** drand quicknet liveness + BLS unforgeability.
+- **Assumptions:** drand quicknet liveness + BLS unforgeability (+ the relay's
+  permissionless, BLS-verified `push`).
 
-See [`DECISIONS.md` §6](./DECISIONS.md) for the full, honest treatment including
-the trusted-settler caveat (decrypt correctness is v1-optimistic; confidentiality
-is trustless).
+**Trust boundary (told up front):** confidentiality is trustless & temporal; the
+clearing price is trustless (on-chain); settlement integrity is v1-optimistic but
+**publicly auditable** (anyone can recompute the decryption from the public
+`sigma_R`); on-chain BLS/fraud-proof enforcement is roadmap. We do **not** claim
+trustless on-chain reveal. Full treatment in [`SUBMISSION.md`](./SUBMISSION.md) /
+[`DECISIONS.md` §6](./DECISIONS.md).
 
 ## Acknowledgements
 
-[`Drand-Relay/`](./Drand-Relay) is vendored reference code by **Kaan Kaçar** —
-a live, on-chain BLS-verifying drand oracle that Stelvin uses purely as a
-timing/key oracle. We do not redeploy it; see its own README for attribution.
+[`Drand-Relay/`](./Drand-Relay) is vendored reference code by **Kaan Kaçar** — a
+live, on-chain BLS-verifying drand oracle that Stelvin uses purely as a timing/key
+oracle. We do not redeploy it; see its own README for attribution.

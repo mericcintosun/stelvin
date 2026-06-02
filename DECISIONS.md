@@ -345,7 +345,7 @@ verified) and is therefore left last.
 
 **In:**
 - BatchGate + Escrow Soroban contract — **done**, 12/12 unit tests, wasm builds
-  (~23.7 KB, 12 exported functions), `wasm32v1-none`.
+  (23,723 bytes, 12 exported functions), `wasm32v1-none`.
 - Dual-asset X/USDC, standing balances, sealed orders, on-chain uniform-price
   matching, conservation-safe + revert-proof settlement, drand timing+key gate,
   reveal dedup, lifecycle events.
