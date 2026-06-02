@@ -20,6 +20,9 @@ dist/
 identity*.toml
 secret*.txt
 
+# Cloned reference repos (not part of Stelvin's own source)
+/stellar-ai-guide/
+
 # OS / editor
 .DS_Store
 Thumbs.db
