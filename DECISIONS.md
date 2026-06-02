@@ -397,8 +397,14 @@ verified) and is therefore left last.
   −80 USDC etc). tlock-js 0.9 default chain **is** quicknet (`mainnetClient()`
   correct). The pre-`R`-unreadable proof is the seed of the M5 bot demo. Scope: core
   round-trip only — daemon/retry/idempotency deferred.
-- **M4 — Frontend.** Deposit/withdraw, encrypt-to-round order builder, batch
-  timeline, clearing result + balances.
+- **M4 — Frontend.** *Phase A (done):* a browser version of the demo —
+  `web/` (Vite/React) renders two live panels (transparent-AMM sandwich vs Stelvin
+  sealed batch) by consuming Server-Sent Events from a thin backend
+  (`settler/src/server.ts`) that reuses the settler `lib.ts` and runs the real
+  on-chain flow (scripted actors, no wallet; tlock decrypt server-side). Verified:
+  backend streams the full live event sequence, frontend builds + serves. This is
+  the visual surface for the video. *Phase B (if time):* wallet-connect deposit /
+  sealed-order submit (+ optional passkey smart wallet) for the UX-axis score.
 - **M5 — Frontrunner bot demo (done).** `settler/src/frontrunner-bot.ts`
   (`npm run demo`) — two panels. LEFT: a *labeled simulation* of a transparent
   AMM sandwich with real constant-product mechanics (bot +315 USDC, victim −268 X).

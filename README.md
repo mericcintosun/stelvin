@@ -56,7 +56,10 @@ demo in [`settler/`](./settler).
 - ✅ **M3 — Settler.** Real `tlock-js` encrypt → submit → (on-chain ciphertext
   **unreadable before R**) → decrypt at reveal → settle, verified e2e on testnet.
 - ✅ **M5 — Frontrunner-bot demo.** Two panels (sandwich vs sealed batch).
-- ⏳ **M4 — Web frontend** · final docs/video.
+- ✅ **M4 (Phase A) — Web UI.** [`web/`](./web): the two panels in the browser,
+  live on testnet via a thin SSE backend (no wallet; scripted actors). Phase B
+  (wallet-connect deposit/submit + passkey) is the remaining UX work.
+- ⏳ Final docs/video.
 
 ## Run & verify
 

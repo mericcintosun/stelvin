@@ -156,7 +156,8 @@ cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 - ✅ **M2** testnet deploy + one-command end-to-end smoke test.
 - ✅ **M3** real `tlock` settler (encrypt → submit → unreadable-pre-`R` → decrypt → settle).
 - ✅ **M5** frontrunner-bot demo (transparent-AMM sandwich vs sealed batch).
-- ⏳ **M4** web frontend (the two panels as a UI).
+- ✅ **M4 (Phase A)** web UI (`web/`) — the two panels in the browser, live on
+  testnet via an SSE backend (Phase B: wallet-connect + passkey is remaining).
 - 🔭 **Roadmap:** on-chain BLS/fraud-proof for settlement; multi-order-per-trader;
   participant-graph privacy; and an **agentic** bidding agent (the settler rails
   already support it) — *not claimed in this submission.*
