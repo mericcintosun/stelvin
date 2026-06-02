@@ -31,7 +31,7 @@ npm run demo
 ## The frontrunner-bot demo (`npm run demo`)
 
 Two panels make the value visible (a recorded run is in
-[`../demo/demo-run.log`](../demo/demo-run.log)):
+[`../demo/sample-run.txt`](../demo/sample-run.txt)):
 
 - **LEFT — transparent DEX (SIMULATED):** a constant-product AMM sandwich with
   *real* mechanics (front-run → victim slips → back-run). The bot reads alice's

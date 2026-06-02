@@ -1,0 +1,42 @@
+════════════════════════════════════════════════════════════════
+  STELVIN — frontrunner showdown: transparent DEX vs sealed batch
+  Two layers of protection: (1) timelock hides orders pre-reveal,
+  (2) uniform-price batch clearing removes intra-batch ordering edge.
+════════════════════════════════════════════════════════════════
+
+▌ LEFT — Transparent DEX (SIMULATED constant-product AMM)
+────────────────────────────────────────────────────────────────
+pool: 10000 X / 10000 USDC (price 1.00)
+alice broadcasts: buy X with 1000 USDC  →  visible in the mempool, cleartext
+
+🤖 bot SEES alice's order and sandwiches it:
+   1. front-run: bot buys 1,666.67 X with 2000 USDC → price pushed up
+   2. alice fills at the WORSE price: gets 641.03 X (fair was 909.09 X)
+   3. back-run: bot sells 1,666.67 X → 2,315.07 USDC
+
+   ✗ bot profit: +315.07 USDC   ·   alice lost 268.07 X to the sandwich
+
+▌ RIGHT — Stelvin (LIVE on testnet, real tlock)
+────────────────────────────────────────────────────────────────
+batch #4 opens, reveals at drand round R=29201236
+alice + bob submit TIMELOCK-SEALED orders (order_id 8, 9)
+
+🤖 same bot, watching Stelvin — it pulls the order straight from chain:
+   on-chain ciphertext: 2d2d2d2d2d424547494e2041474520454e43525950544544…  (625 bytes, opaque)
+   bot attempt #1: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~30s left)
+   bot attempt #2: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~24s left)
+   bot attempt #3: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~21s left)
+   bot attempt #4: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~15s left)
+   bot attempt #5: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~9s left)
+
+   round R reached — the beacon publishes; NOW anyone can decrypt.
+   settled on-chain at a SINGLE uniform price P* = 0.8
+   alice +100 X · bob +80 USDC · everyone filled at the same price
+
+   ✓ bot frontrun attempts: 5 — all failed (order was unreadable until R)
+════════════════════════════════════════════════════════════════
+  VERDICT
+  Transparent DEX : order visible → bot sandwiches → user loses.
+  Stelvin         : order sealed  → bot blind (5 failed reads) → fair uniform price.
+  MEV isn't promised away — it's cryptographically impossible to react to.
+════════════════════════════════════════════════════════════════

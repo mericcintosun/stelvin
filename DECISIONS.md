@@ -406,7 +406,7 @@ verified) and is therefore left last.
   really runs `tlock` decrypt, failing *"too early … decryptable at round R"* on
   every attempt (with a live countdown) until the beacon publishes R, then the
   batch settles at one uniform price. Honesty framing is on-screen (two layers:
-  timelock + uniform-price batch). A recorded run is kept in `demo/demo-run.log`
+  timelock + uniform-price batch). A recorded run is kept in `demo/sample-run.txt`
   as a backup clip (feeder downtime must not kill a live pitch). The "unreadable
   before R, settled fairly after" contrast is the core demo moment. *Note: the
   live timing surfaced a real race — drand's public API publishes R slightly

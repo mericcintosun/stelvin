@@ -50,7 +50,7 @@ rationale, trade-offs, threat model, and milestones are in
 - ✅ **Frontrunner-bot demo (M5)** — [`npm run demo`](./settler): two panels —
   a labeled transparent-AMM sandwich (bot profits) vs Stelvin live, where the bot
   genuinely can't decrypt the on-chain order until round R, then it settles at one
-  fair uniform price. Recorded run: [`demo/demo-run.log`](./demo/demo-run.log).
+  fair uniform price. Recorded run: [`demo/sample-run.txt`](./demo/sample-run.txt).
 - ⏳ Frontend · final docs/video.
 
 ## Build & test
