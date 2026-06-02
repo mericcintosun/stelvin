@@ -386,9 +386,17 @@ verified) and is therefore left last.
   exact, `BatchSettled` event emitted. Latest BatchGate:
   `CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA`. Next: typed
   frontend bindings.
-- **M3 — Settler.** TS service: read batch → fetch raw 48-byte `sigma_R` from
-  quicknet → `tlock-js` decrypt all ciphertexts → call `settle`. Idempotent,
-  retry-safe.
+- **M3 — Settler (done).** `settler/` (TypeScript, `tlock-js`). Step 0 proved the
+  isolated quicknet round-trip in isolation (encrypt→R, **undecryptable before R**,
+  decrypt==plaintext after) — retiring the tlock encoding risk before integration.
+  Then real-tlock end-to-end on testnet: `create_batch` → tlock-encrypt orders →
+  submit opaque ciphertext → **prove the on-chain ciphertext is unreadable pre-`R`**
+  (`"too early to decrypt … decryptable at round R"`) → wait `R` → decrypt the
+  batch from chain → `sha256(sigma)==relay.get(R)` ✓ → `settle`. Confirmed: orders
+  decrypt to exactly their plaintext, clear at `P*=0.8`, balances move (+100 X /
+  −80 USDC etc). tlock-js 0.9 default chain **is** quicknet (`mainnetClient()`
+  correct). The pre-`R`-unreadable proof is the seed of the M5 bot demo. Scope: core
+  round-trip only — daemon/retry/idempotency deferred.
 - **M4 — Frontend.** Deposit/withdraw, encrypt-to-round order builder, batch
   timeline, clearing result + balances.
 - **M5 — Frontrunner bot demo.** A bot that watches submissions, tries to read /

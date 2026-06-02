@@ -44,7 +44,10 @@ rationale, trade-offs, threat model, and milestones are in
   sealed submit → drand round publishes → fetch sigma → settle → balances change
   at the uniform clearing price. Encoding (`sha256(48-byte compressed sigma) ==
   relay.get(R)`) CLI-verified.
-- ⏳ Settler (tlock) · frontend · frontrunner-bot demo · docs.
+- ✅ **Settler (M3)** — [`settler/`](./settler): real `tlock-js` encrypt → submit →
+  (on-chain ciphertext **unreadable before round R**) → decrypt at reveal → settle,
+  verified end-to-end on testnet.
+- ⏳ Frontend · frontrunner-bot demo · docs.
 
 ## Build & test
 

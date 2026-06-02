@@ -1,0 +1,19 @@
+{
+  "name": "stelvin-settler",
+  "version": "0.1.0",
+  "description": "Stelvin off-chain settler: tlock-encrypt orders, decrypt the batch at reveal, call settle().",
+  "scripts": {
+    "roundtrip": "tsx src/tlock-roundtrip.ts",
+    "e2e": "tsx src/settler.ts"
+  },
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "tlock-js": "^0.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
