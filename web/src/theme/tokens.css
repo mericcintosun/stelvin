@@ -1,0 +1,190 @@
+/* ===========================================================================
+   Stelvin — Design Tokens
+   ---------------------------------------------------------------------------
+   The palette is not decorative: it encodes the product's core state machine,
+   SEALED → REVEALED. A timelock-encrypted order is "sealed" (cold indigo),
+   unreadable by anyone, until drand round R publishes — then it is "revealed"
+   and clears at one fair price (bright aqua-mint). Every accent maps to one of
+   those two states. See ../../BRAND.md for the full rationale.
+
+   Colors are stored as raw HSL channels so Tailwind can compose them with
+   opacity via hsl(var(--x) / <alpha>). Deliberately distinct from the Noether
+   reference: deep indigo-navy base (never flat black), a two-state indigo↔mint
+   system, and zero gold.
+   =========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ---- Base: dark warm concrete / night-asphalt (never pure black) ---- */
+  --bg:          38 12% 6%;      /* page background — warm near-black concrete */
+  --bg-soft:     36 10% 9%;      /* raised page bands                          */
+  --surface:     36 9% 11.5%;    /* cards                                      */
+  --surface-2:   36 9% 16%;      /* nested / hovered surfaces                  */
+  --border:      38 11% 23%;     /* hairline borders, warm-grey                */
+  --border-soft: 38 10% 18%;
+
+  /* ---- Text (warm concrete whites, WCAG AA on --bg) ---- */
+  --text:        42 24% 96%;     /* primary — ~16:1 on --bg                    */
+  --text-dim:    40 12% 75%;     /* secondary body — ~7:1                      */
+  --text-muted:  40 9% 57%;      /* captions / meta — ~4.6:1                   */
+
+  /* ---- SEALED accent (primary): hazard / caution amber — locked, "caution" ---- */
+  --sealed-300:  41 96% 72%;
+  --sealed-400:  39 95% 63%;
+  --sealed:      37 93% 54%;     /* DEFAULT — locked / hidden state            */
+  --sealed-600:  33 88% 46%;
+  --sealed-700:  28 80% 37%;
+
+  /* ---- REVEALED accent (secondary): hi-vis safety lime — cleared / fair / "go" ---- */
+  --revealed-300: 78 88% 74%;
+  --revealed:     80 78% 54%;    /* DEFAULT — opened / cleared / fair          */
+  --revealed-600: 86 70% 43%;
+  --revealed-700: 92 60% 33%;
+
+  /* ---- Semantic ---- */
+  --attack:      9 84% 57%;      /* the sandwich / MEV loss — construction stop-red */
+  --attack-dim:  9 55% 22%;
+  --warn:        44 96% 58%;     /* "too early" countdown — caution amber-yellow */
+
+  /* ---- Radius ---- */
+  --radius:      0.875rem;       /* 14px — cards                               */
+  --radius-sm:   0.5rem;
+  --radius-lg:   1.25rem;
+  --radius-pill: 999px;
+
+  /* ---- Elevation / glow (state-coded) ---- */
+  --glow-sealed:   0 0 0 1px hsl(var(--sealed) / 0.25), 0 0 44px -8px hsl(var(--sealed) / 0.45);
+  --glow-revealed: 0 0 0 1px hsl(var(--revealed) / 0.3), 0 0 56px -6px hsl(var(--revealed) / 0.55);
+  --shadow-card:   0 1px 0 0 hsl(0 0% 100% / 0.03) inset, 0 18px 40px -24px hsl(233 60% 2% / 0.9);
+
+  /* ---- Motion ---- */
+  --ease-out:   cubic-bezier(0.22, 1, 0.36, 1);   /* expo-ish, premium settle  */
+  --ease-soft:  cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:   180ms;
+  --dur:        320ms;
+  --dur-slow:   620ms;
+
+  /* ---- Typography stacks (loaded via index.html Google Fonts) ---- */
+  --font-heading: "Space Grotesk", system-ui, sans-serif;
+  --font-body:    "Inter", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 700px at 50% -8%, hsl(var(--sealed) / 0.12), transparent 60%),
+      radial-gradient(900px 600px at 88% 8%, hsl(var(--revealed) / 0.06), transparent 55%),
+      hsl(var(--bg));
+    color: hsl(var(--text));
+    font-family: var(--font-body);
+    font-feature-settings: "cv02", "cv03", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+    margin: 0;
+    color: hsl(var(--text));
+    text-wrap: balance;
+  }
+  p { margin: 0; }
+  a { color: inherit; text-decoration: none; }
+  code, kbd, pre { font-family: var(--font-mono); }
+  ::selection {
+    background: hsl(var(--sealed) / 0.32);
+    color: white;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--revealed) / 0.7);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ---- Scrollbar (indigo, slim) ---- */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: hsl(var(--bg)); }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 99px;
+  border: 2px solid hsl(var(--bg));
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--surface-2)); }
+
+@layer utilities {
+  /* Brand gradient text: sealed → revealed (the product narrative in one phrase) */
+  .text-brand-gradient {
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--sealed-300)) 0%,
+      hsl(var(--sealed)) 38%,
+      hsl(var(--revealed)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-revealed-gradient {
+    background-image: linear-gradient(100deg, hsl(var(--revealed-300)), hsl(var(--revealed)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Hairline gradient border using a masked pseudo-element */
+  .ring-grad {
+    position: relative;
+  }
+  .ring-grad::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(var(--sealed) / 0.55), transparent 40%, hsl(var(--revealed) / 0.4));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+  .glow-sealed { box-shadow: var(--glow-sealed); }
+  .glow-revealed { box-shadow: var(--glow-revealed); }
+  .grid-faint {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+}
+
+/* ---- Respect reduced motion everywhere ---- */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -34,3 +34,5 @@ Thumbs.db
 
 # Keep editor workspace settings out by default (uncomment to share)
 .idea/
+
+/noether-web/

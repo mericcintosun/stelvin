@@ -1,9 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stelvin — frontrunner showdown</title>
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#12100c" />
+
+    <title>Stelvin — Sealed orders. One fair price. Zero front-running.</title>
+    <meta
+      name="description"
+      content="A sealed-bid batch DEX on Stellar Soroban. Orders are timelock-encrypted and unreadable by anyone — us included — until they clear at one uniform price. MEV isn't promised away; it's cryptographically impossible to react to."
+    />
+
+    <!-- Open Graph / Twitter (image slot in /public/assets — see assets/README.md) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
+    <meta property="og:description" content="A timelock-sealed batch DEX on Stellar. MEV: cryptographically impossible to react to. Live on testnet." />
+    <meta property="og:image" content="/assets/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
+    <meta name="twitter:description" content="A timelock-sealed batch DEX on Stellar. Live on testnet — verify it yourself." />
+    <meta name="twitter:image" content="/assets/og-image.png" />
+
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+
+    <!-- Fonts: Space Grotesk (headings) · Inter (body) · JetBrains Mono (numbers/code) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>
