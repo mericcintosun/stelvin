@@ -8,10 +8,12 @@ type Left = {
   xFair?: number; xBot?: number; xAlice?: number; usdcBack?: number; botProfit?: number; aliceLoss?: number
 }
 type Attempt = { n: number; message: string; secondsLeft: number }
+type Oracle = { price?: number; source?: string; stale?: boolean; deviationPct?: number; unavailable?: boolean }
 type Right = {
   batchId?: number; R?: number; aoid?: number; boid?: number; ciphertext?: string; bytes?: number
   attempts: Attempt[]; revealed?: boolean
   price?: number; matched?: number; aliceGainX?: number; bobGainUsdc?: number; frontrunAttempts?: number
+  oracle?: Oracle
 }
 
 export default function App() {
@@ -37,6 +39,7 @@ export default function App() {
         case "bot_attempt": setRight((p) => ({ ...p, attempts: [...p.attempts, e as Attempt] })); break
         case "reveal": setRight((p) => ({ ...p, revealed: true })); break
         case "settled": setRight((p) => ({ ...p, ...e })); break
+        case "oracle": setRight((p) => ({ ...p, oracle: e as Oracle })); break
         case "done": setDone(true); setRunning(false); es.close(); break
         case "error": setErr(e.message); setRunning(false); es.close(); break
       }
@@ -112,8 +115,15 @@ export default function App() {
           {right.revealed && right.price === undefined && <p className="muted">round R reached — settling on-chain…</p>}
           {right.price !== undefined && (
             <div className="result good">
-              ✓ settled at uniform price <b>P* = {right.price}</b> · alice <b>+{right.aliceGainX} X</b> · bob <b>+{right.bobGainUsdc} USDC</b>
+              ✓ settled at uniform price <b>P* = {right.price} XLM/USDC</b> · alice <b>+{right.aliceGainX} XLM</b> · bob <b>+{right.bobGainUsdc} USDC</b>
               <div className="zero">frontrun attempts: {right.frontrunAttempts} — <b>0 successful</b></div>
+            </div>
+          )}
+          {right.oracle && (
+            <div className="oracle">
+              {right.oracle.unavailable
+                ? <span className="muted">Noether oracle reference unavailable (non-blocking)</span>
+                : <>🔗 <b>Noether</b> SEP-40 oracle fair value <b>${right.oracle.price?.toFixed(4)}</b> ({right.oracle.source}) · Stelvin cleared within <b>{right.oracle.deviationPct}%</b> → fair</>}
             </div>
           )}
         </section>

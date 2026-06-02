@@ -17,7 +17,7 @@
 import {
   E, inv, asInt, sleep,
   relayLatestRound, relayGet, getBalance, getOrderCiphertext,
-  encryptOrder, decryptHex, fetchSigma, sha256hex, type Order,
+  encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
 
 // Silence tlock-js's internal "beacon received" logging for a clean demo.
@@ -66,8 +66,11 @@ async function stelvinSealedBatch() {
   const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
   console.log(`batch #${batchId} opens, reveals at drand round R=${R}`)
 
-  const alice: Order = { side: "Buy", amount: 100, limit_price: 12_000_000 }
-  const bob: Order = { side: "Sell", amount: 100, limit_price: 8_000_000 }
+  // XLM/USDC market, priced near the live Noether oracle (~$0.22) so the
+  // post-settle fair-value sanity-check is meaningful. Prices are FIXED (not
+  // oracle-derived) — the oracle stays display-only and non-blocking.
+  const alice: Order = { side: "Buy", amount: 100, limit_price: 2_250_000 }
+  const bob: Order = { side: "Sell", amount: 100, limit_price: 2_200_000 }
   const aHex = await encryptOrder(R, alice)
   const bHex = await encryptOrder(R, bob)
   const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))
@@ -112,8 +115,19 @@ async function stelvinSealedBatch() {
   const clearing = JSON.parse(inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)![0])
   const aX1 = getBalance(E.ALICE, E.X_SAC), bU1 = getBalance(E.BOB, E.USDC_SAC)
 
-  console.log(`   settled on-chain at a SINGLE uniform price P* = ${Number(clearing.price) / 1e7}`)
-  console.log(`   alice +${aX1 - aX0} X · bob +${bU1 - bU0} USDC · everyone filled at the same price`)
+  const px = Number(clearing.price) / 1e7
+  console.log(`   settled on-chain at a SINGLE uniform price P* = ${px} XLM/USDC`)
+  console.log(`   alice +${aX1 - aX0} XLM · bob +${bU1 - bU0} USDC · everyone filled at the same price`)
+
+  // Ecosystem-fit sanity check — display-only, non-blocking (never throws).
+  const fv = readOracleFairValue("XLM")
+  if (fv) {
+    const dev = (Math.abs(px - fv.price) / fv.price) * 100
+    console.log(`   \x1b[36mNoether oracle (SEP-40) fair value: $${fv.price.toFixed(4)} XLM (source: ${fv.source}${fv.stale ? ", stale" : ""}) — Stelvin cleared within ${dev.toFixed(1)}% → fair\x1b[0m`)
+  } else {
+    console.log(`   Noether oracle reference unavailable (non-blocking)`)
+  }
+
   console.log(`\n\x1b[32m   ✓ bot frontrun attempts: ${attempts} — all failed (order was unreadable until R)\x1b[0m`)
   return attempts
 }

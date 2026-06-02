@@ -9,6 +9,7 @@ import { dirname, resolve } from "node:path"
 import { mainnetClient, timelockEncrypt, timelockDecrypt, defaultChainInfo } from "tlock-js"
 
 export const NET = "testnet"
+export const PRICE_SCALE = 10_000_000 // 1e7, matches the contract + Noether oracle's 7 decimals
 export const CHAIN = defaultChainInfo.hash // quicknet (tlock-js 0.9 default)
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
 export const ENVF = resolve(ROOT, ".stelvin", "testnet.env")
@@ -63,3 +64,27 @@ export async function fetchSigma(R: number): Promise<string> {
   return j.signature as string // 48-byte compressed hex
 }
 export const sha256hex = (hex: string) => createHash("sha256").update(Buffer.from(hex, "hex")).digest("hex")
+
+// ── Noether SEP-40 oracle (ecosystem-fit, DISPLAY-ONLY, non-blocking) ────────
+// Reads Noether's deployed on-chain Oracle Adapter (SCF #41 perp DEX) as a
+// fair-value reference. Permissionless, no API key; `--send=no` = read-only
+// simulation, no tx. This NEVER throws and NEVER affects settle — any failure
+// (paused/stale/unreachable/parse) returns null and the demo continues.
+export const NOETHER_ORACLE = "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4"
+export function readOracleFairValue(asset = "XLM"): { price: number; source: string; stale: boolean } | null {
+  try {
+    const out = execSync(
+      `stellar contract invoke --id ${NOETHER_ORACLE} --source admin --network ${NET} --send=no -- get_price --asset ${asset} 2>/dev/null`,
+      { encoding: "utf8", timeout: 20000 },
+    )
+    const m = out.match(/\{[^{}]*"price"[^{}]*\}/)
+    if (!m) return null
+    const d = JSON.parse(m[0])
+    const price = Number(d.price) / PRICE_SCALE
+    if (!Number.isFinite(price) || price <= 0) return null
+    const age = Math.floor(Date.now() / 1000) - Number(d.timestamp)
+    return { price, source: String(d.source), stale: age > 60 }
+  } catch {
+    return null
+  }
+}

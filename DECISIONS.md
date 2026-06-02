@@ -270,6 +270,29 @@ verified) and is therefore left last.
 
 ---
 
+### ADR-016 — Noether SEP-40 oracle as a non-blocking fair-value reference
+**Decision.** After settlement, the settler/demo reads Noether's deployed on-chain
+oracle (SCF #41 perp DEX) as a fair-value sanity check next to Stelvin's clearing
+price — **display-only, strictly non-blocking**, never touching the contract or
+`settle`.
+**Discovery (live, ADIM 0 — not guessed).** Oracle Adapter
+`CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4`:
+`get_price(asset: Symbol) -> OraclePriceData { price: i128, source: Symbol,
+timestamp: u64, confidence: u32 }`, `decimals() == 7`. Confirmed live: `get_price("XLM")`
+→ `$0.2214`, source `aggregated`. The 7-decimal scale matches our `PRICE_SCALE`
+exactly, so values are directly comparable. Read via `--send=no` (read-only
+simulation, **no tx, no API key, permissionless**).
+**Why.** Real ecosystem composition on the same testnet, and it strengthens the
+"fair markets" narrative with an independent reference. **Why non-blocking:**
+`readOracleFairValue()` is wrapped in try/catch with a timeout and returns `null`
+on any failure — a paused/stale/unreachable oracle must never break the demo or
+settle (the CLI fallback `demo/sample-run.txt` also stands). The demo's market is
+relabeled XLM/USDC with fixed prices near the oracle level (~$0.22) so the check
+is meaningful — the prices are **not** oracle-derived, preserving non-blocking.
+**Honesty.** The oracle is a *reference*, not the price source; Stelvin's price
+still comes from sealed orders. On-chain soft-guardrail (reject settles far from
+the oracle) is roadmap, not v1.
+
 ## 5. Contract reference (BatchGate + Escrow)
 
 **Storage (`DataKey`)**

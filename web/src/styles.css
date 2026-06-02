@@ -65,3 +65,6 @@ footer b { color: var(--text); }
 footer code { color: #9fb0c8; }
 
 @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } header { flex-direction: column; } }
+
+.oracle { margin-top: 10px; font-size: 13px; color: #9fb0c8; padding: 8px 10px; background: rgba(43,108,255,0.08); border: 1px solid rgba(43,108,255,0.25); border-radius: 8px; }
+.oracle b { color: var(--text); }

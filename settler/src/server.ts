@@ -10,7 +10,7 @@ import express from "express"
 import {
   E, inv, asInt, sleep,
   relayLatestRound, relayGet, getBalance, getOrderCiphertext,
-  encryptOrder, decryptHex, fetchSigma, sha256hex, type Order,
+  encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
 
 const PORT = Number(process.env.PORT ?? 8787)
@@ -50,8 +50,10 @@ app.get("/api/demo", async (req, res) => {
     const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
     emit("batch_opened", { batchId, R })
 
-    const alice: Order = { side: "Buy", amount: 100, limit_price: 12_000_000 }
-    const bob: Order = { side: "Sell", amount: 100, limit_price: 8_000_000 }
+    // XLM/USDC priced near the live Noether oracle (~$0.22) so the post-settle
+    // fair-value check is meaningful. Fixed prices — oracle stays display-only.
+    const alice: Order = { side: "Buy", amount: 100, limit_price: 2_250_000 }
+    const bob: Order = { side: "Sell", amount: 100, limit_price: 2_200_000 }
     const aHex = await encryptOrder(R, alice)
     const bHex = await encryptOrder(R, bob)
     const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))
@@ -90,13 +92,21 @@ app.get("/api/demo", async (req, res) => {
     ])
     inv(E.GATE, "admin", `settle --batch_id ${batchId} --sigma_r ${sigma} --revealed '${revealed}'`)
     const clearing = JSON.parse(inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)![0])
+    const px = Number(clearing.price) / 1e7
     emit("settled", {
-      price: Number(clearing.price) / 1e7,
+      price: px,
       matched: Number(clearing.matched_volume),
       aliceGainX: getBalance(E.ALICE, E.X_SAC) - aX0,
       bobGainUsdc: getBalance(E.BOB, E.USDC_SAC) - bU0,
       frontrunAttempts: attempts,
     })
+
+    // Ecosystem-fit: Noether SEP-40 oracle fair-value reference (non-blocking).
+    const fv = readOracleFairValue("XLM")
+    emit("oracle", fv
+      ? { price: fv.price, source: fv.source, stale: fv.stale, deviationPct: +(Math.abs(px - fv.price) / fv.price * 100).toFixed(2) }
+      : { unavailable: true })
+
     emit("done")
   } catch (e) {
     emit("error", { message: String((e as Error).message) })

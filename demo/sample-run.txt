@@ -18,20 +18,21 @@ alice broadcasts: buy X with 1000 USDC  →  visible in the mempool, cleartext
 
 ▌ RIGHT — Stelvin (LIVE on testnet, real tlock)
 ────────────────────────────────────────────────────────────────
-batch #4 opens, reveals at drand round R=29201236
-alice + bob submit TIMELOCK-SEALED orders (order_id 8, 9)
+batch #10 opens, reveals at drand round R=29207130
+alice + bob submit TIMELOCK-SEALED orders (order_id 20, 21)
 
 🤖 same bot, watching Stelvin — it pulls the order straight from chain:
-   on-chain ciphertext: 2d2d2d2d2d424547494e2041474520454e43525950544544…  (625 bytes, opaque)
-   bot attempt #1: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~30s left)
-   bot attempt #2: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~24s left)
-   bot attempt #3: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~21s left)
+   on-chain ciphertext: 2d2d2d2d2d424547494e2041474520454e43525950544544…  (621 bytes, opaque)
+   bot attempt #1: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~33s left)
+   bot attempt #2: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~27s left)
+   bot attempt #3: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~18s left)
    bot attempt #4: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~15s left)
    bot attempt #5: tlock decrypt → It's too early to decrypt the ciphertext - decryptab… (~9s left)
 
    round R reached — the beacon publishes; NOW anyone can decrypt.
-   settled on-chain at a SINGLE uniform price P* = 0.8
-   alice +100 X · bob +80 USDC · everyone filled at the same price
+   settled on-chain at a SINGLE uniform price P* = 0.22 XLM/USDC
+   alice +100 XLM · bob +22 USDC · everyone filled at the same price
+   Noether oracle (SEP-40) fair value: $0.2190 XLM (source: aggregated) — Stelvin cleared within 0.4% → fair
 
    ✓ bot frontrun attempts: 5 — all failed (order was unreadable until R)
 ════════════════════════════════════════════════════════════════

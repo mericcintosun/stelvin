@@ -162,6 +162,22 @@ cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
   participant-graph privacy; and an **agentic** bidding agent (the settler rails
   already support it) — *not claimed in this submission.*
 
+## Ecosystem fit
+
+- **Composes with Noether** (SCF #41 perpetual DEX, $86.2k funded): after each
+  batch settles, Stelvin reads Noether's deployed **SEP-40 on-chain oracle**
+  (Oracle Adapter `CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4`,
+  Band+DIA aggregated, 7-decimal — same scale as our `PRICE_SCALE`) as a live
+  **fair-value reference**, e.g. *"Stelvin cleared XLM/USDC within 0.4% of
+  Noether's $0.2190 fair value."* **Permissionless, no API key**
+  (read-only `--send=no` simulation of `get_price`). It's a **display-only sanity
+  check** — Stelvin's price still comes from the sealed orders — and it's
+  **strictly non-blocking**: if the oracle is paused/stale/unreachable the demo
+  proceeds unchanged and shows *"oracle reference unavailable."*
+- **Built directly on Stellar rails:** native Soroban BLS12-381 host functions
+  and the live, on-chain BLS-verifying Drand-Relay — the timelock gate exists
+  *because* of capabilities unique to this network.
+
 ## Tracks
 
 **Main** (automatic) + **Privacy** (primary). Agentic is roadmap, not claimed here.
