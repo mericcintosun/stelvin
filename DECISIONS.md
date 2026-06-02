@@ -102,6 +102,14 @@ BLS pairing check (`e(σ,-g2)·e(H(m),pk)==1`) *before* storing `sha256(σ)`. So
 (b) the committed key is authentic — both trustless.
 **Trade-off.** The settler must reach an off-chain API for the raw sigma; the
 on-chain `sha256` check binds it to the verified commitment.
+**Verified (CLI, round `29196000`).** `sha256(48-byte *compressed* signature
+from api.drand.sh) == the round's published randomness == what the relay stores`.
+Confirmed byte-for-byte before writing any settler code, so `settle()`'s encoding
+assumption is proven. **Settler contract:** fetch the quicknet `signature` field
+(48-byte compressed hex), hex-decode to `BytesN<48>`, pass that exact value to
+`settle`. The **same** 48-byte compressed sig is also the tlock IBE decryption
+key — one fetch serves both decrypt and settle. Pitfall: tlock-js sometimes uses
+the 96-byte *uncompressed* sig; `settle` requires the **48-byte compressed** one.
 
 ### ADR-003 — Self-contained cross-contract client (no source dependency on relay)
 **Decision.** Define our own `#[contractclient] trait DrandRelay { get; latest }`
@@ -407,6 +415,8 @@ verified) and is therefore left last.
 | Drand-Relay verifier (testnet) | `CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM` |
 | Feeder API | `https://stellardrand.duckdns.org` |
 | drand chain | quicknet · `bls-unchained-g1-rfc9380` · 3s period |
+| drand chain hash | `52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971` |
+| sigma encoding | **CLI-verified** (round `29196000`): `sha256(48-byte compressed sig) == randomness == relay.get(R)` |
 | quicknet genesis (unix) | `1_692_803_367` |
 | `PRICE_SCALE` | `10_000_000` (1e7) |
 | `FEAS_SCALE` | `1_000_000_000` (1e9) |
