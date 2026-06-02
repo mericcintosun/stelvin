@@ -47,7 +47,11 @@ rationale, trade-offs, threat model, and milestones are in
 - ✅ **Settler (M3)** — [`settler/`](./settler): real `tlock-js` encrypt → submit →
   (on-chain ciphertext **unreadable before round R**) → decrypt at reveal → settle,
   verified end-to-end on testnet.
-- ⏳ Frontend · frontrunner-bot demo · docs.
+- ✅ **Frontrunner-bot demo (M5)** — [`npm run demo`](./settler): two panels —
+  a labeled transparent-AMM sandwich (bot profits) vs Stelvin live, where the bot
+  genuinely can't decrypt the on-chain order until round R, then it settles at one
+  fair uniform price. Recorded run: [`demo/demo-run.log`](./demo/demo-run.log).
+- ⏳ Frontend · final docs/video.
 
 ## Build & test
 

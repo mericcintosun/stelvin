@@ -23,7 +23,34 @@ npm run roundtrip
 # create batch -> tlock-encrypt + submit -> prove on-chain ciphertext is
 # unreadable pre-R -> wait R -> decrypt from chain -> settle -> verify balances.
 npm run e2e
+
+# M5 frontrunner-bot demo (two panels, side by side):
+npm run demo
 ```
+
+## The frontrunner-bot demo (`npm run demo`)
+
+Two panels make the value visible (a recorded run is in
+[`../demo/demo-run.log`](../demo/demo-run.log)):
+
+- **LEFT — transparent DEX (SIMULATED):** a constant-product AMM sandwich with
+  *real* mechanics (front-run → victim slips → back-run). The bot reads alice's
+  cleartext order and profits (+315 USDC) while she loses 268 X to slippage.
+  Clearly labeled a simulation — sandwiching AMMs is exactly how real MEV works.
+- **RIGHT — Stelvin (LIVE on testnet):** the *same bot* pulls the actual on-chain
+  ciphertext and really runs `tlock` decrypt — and gets *"It's too early to
+  decrypt … decryptable at round R"* on every attempt, with a live countdown,
+  until the drand beacon publishes R. Then the batch settles at a single uniform
+  price and everyone fills equally. Frontrun attempts: all failed.
+
+**Honesty framing (also on screen).** Stelvin protects with **two layers**:
+(1) **timelock** hides order contents before reveal; (2) **uniform-price batch
+clearing** removes intra-batch ordering advantage. *Why timelock on top of a
+batch auction?* A batch auction removes ordering advantage at settlement, but
+pre-settlement order contents would still leak strategy (copy-trading,
+positioning). Timelock closes that pre-reveal leak. Together: nothing to see,
+nothing to exploit. The LEFT panel is a labeled simulation; the RIGHT panel is
+live, with the bot genuinely failing to decrypt — not a scripted "access denied".
 
 `e2e` requires a prior `scripts/deploy_and_smoke.sh` run (it reuses the deployed
 contract IDs and funded traders in `../.stelvin/testnet.env`).
@@ -36,5 +63,7 @@ scope — they're hardening, not the proof.
 
 ## Files
 
+- `src/lib.ts` — shared chain + tlock helpers.
 - `src/tlock-roundtrip.ts` — isolated tlock-js quicknet round-trip proof.
-- `src/settler.ts` — `encryptOrder` / `decryptHex` + the full on-chain e2e.
+- `src/settler.ts` — the full on-chain encrypt → submit → decrypt → settle e2e.
+- `src/frontrunner-bot.ts` — the two-panel M5 demo.

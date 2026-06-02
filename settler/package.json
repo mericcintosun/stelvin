@@ -4,7 +4,8 @@
   "description": "Stelvin off-chain settler: tlock-encrypt orders, decrypt the batch at reveal, call settle().",
   "scripts": {
     "roundtrip": "tsx src/tlock-roundtrip.ts",
-    "e2e": "tsx src/settler.ts"
+    "e2e": "tsx src/settler.ts",
+    "demo": "tsx src/frontrunner-bot.ts"
   },
   "license": "MIT",
   "type": "commonjs",

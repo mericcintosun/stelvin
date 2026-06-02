@@ -399,9 +399,19 @@ verified) and is therefore left last.
   round-trip only — daemon/retry/idempotency deferred.
 - **M4 — Frontend.** Deposit/withdraw, encrypt-to-round order builder, batch
   timeline, clearing result + balances.
-- **M5 — Frontrunner bot demo.** A bot that watches submissions, tries to read /
-  front-run, and visibly fails (the "wow" moment). Side-by-side with a normal DEX
-  to make the contrast legible.
+- **M5 — Frontrunner bot demo (done).** `settler/src/frontrunner-bot.ts`
+  (`npm run demo`) — two panels. LEFT: a *labeled simulation* of a transparent
+  AMM sandwich with real constant-product mechanics (bot +315 USDC, victim −268 X).
+  RIGHT: live on testnet — the same bot pulls the actual on-chain ciphertext and
+  really runs `tlock` decrypt, failing *"too early … decryptable at round R"* on
+  every attempt (with a live countdown) until the beacon publishes R, then the
+  batch settles at one uniform price. Honesty framing is on-screen (two layers:
+  timelock + uniform-price batch). A recorded run is kept in `demo/demo-run.log`
+  as a backup clip (feeder downtime must not kill a live pitch). The "unreadable
+  before R, settled fairly after" contrast is the core demo moment. *Note: the
+  live timing surfaced a real race — drand's public API publishes R slightly
+  before the feeder pushes it on-chain, so the demo gates on the on-chain relay
+  (what settle needs), not on decrypt-success.*
 - **M6 — Docs & submission.** README, technical design doc, privacy disclosures
   (§6), demo video, submission form with Main + Privacy ticked.
 
