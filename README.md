@@ -64,11 +64,18 @@ tokenized-RWA & institutional flows next.
 
 ## The problem
 
-On any transparent exchange, the moment you send an order it's visible in the
-mempool / order book. Bots see it, **jump ahead (front-running)** and **bend the
-price against you (sandwiching)**. Billions of dollars per year are extracted this
-way. A bot can only react to an order it can **see** — so Stelvin makes orders
-physically invisible until they clear.
+On any transparent exchange your order is public the moment it lands — resting on
+an order book or visible in AMM reserves — and whoever controls transaction
+ordering can **jump ahead (front-running)** and **bend the price against you
+(sandwiching)**. Billions of dollars per year are extracted this way.
+
+**Stellar has no public mempool**, so it doesn't inherit Ethereum's worst case —
+that's a head start, not immunity. Front-running doesn't *need* a mempool:
+transparent on-chain order books and AMM reserves expose your size and direction,
+and transaction ordering inside a ledger is decided by validators. A bot can only
+react to an order it can **see**, and a sequencer can only reorder an order it can
+**read** — so Stelvin makes orders physically invisible until they all clear at one
+price.
 
 **Scope of the claim (precise).** *Intra-batch* front-running and sandwiching are
 **cryptographically eliminated**: within a batch no order is visible and a single
@@ -252,9 +259,11 @@ We state the boundary up front, not buried:
 - **From whom:** all participants **and** the operator/settler — until round `R`.
 - **Technique:** drand timelock encryption (`tlock` = Boneh-Franklin IBE / BLS12-381;
   `tlock-js`), drand quicknet (`bls-unchained-g1-rfc9380`, 3s period).
-- **Threat model:** a mempool-watching front-running / sandwich / MEV adversary.
-  Pre-`R` there is no plaintext to observe; post-`R` everything clears atomically at
-  one price.
+- **Threat model:** a transaction-ordering / sandwich adversary — transparent
+  on-chain order books and AMM reserves, plus validator-decided intra-ledger
+  ordering (Stellar has **no public mempool**, and we don't rely on it being one).
+  Pre-`R` there is no plaintext to observe or reorder around; post-`R` everything
+  clears atomically at one price.
 - **Cryptographic assumptions:** drand quicknet beacon liveness + BLS signature
   unforgeability (+ the relay's permissionless, BLS-verified `push`).
 - **Residual leak (honest):** standing-balance funding amount is in cleartext; a user

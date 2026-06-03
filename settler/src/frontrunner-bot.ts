@@ -31,7 +31,7 @@ function transparentDexSandwich() {
   const Rx = 10000, Ru = 10000
   const aliceUSDC = 1000, botUSDC = 2000
   console.log(`pool: ${Rx} ${RWA.base} / ${Ru} USDC (price 1.00)`)
-  console.log(`a desk broadcasts: buy ${RWA.base} with ${aliceUSDC} USDC  →  visible in the mempool, cleartext`)
+  console.log(`a desk broadcasts: buy ${RWA.base} with ${aliceUSDC} USDC  →  visible on the transparent AMM, cleartext`)
   const xFair = out(aliceUSDC, Ru, Rx)
   console.log(`\n🤖 bot SEES the block order and sandwiches it:`)
   const xBot = out(botUSDC, Ru, Rx); const Ru1 = Ru + botUSDC, Rx1 = Rx - xBot

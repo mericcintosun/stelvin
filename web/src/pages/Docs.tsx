@@ -369,9 +369,10 @@ protocol_fee = Σ buy_quote − Σ seller_quote     ( ≥ 0, the residual )
         </div>
         <p>
           <b className="text-text">Technique:</b> drand timelock encryption (<C>tlock</C>, Boneh-Franklin IBE / BLS12-381),
-          drand quicknet (3s period). <b className="text-text">Threat model:</b> a mempool-watching frontrunning / sandwich /
-          MEV adversary. <b className="text-text">Assumptions:</b> drand quicknet liveness + BLS unforgeability, plus the
-          relay's permissionless, BLS-verified <C>push</C>.
+          drand quicknet (3s period). <b className="text-text">Threat model:</b> a transaction-ordering / sandwich adversary —
+          transparent on-chain order books and AMM reserves, plus validator-decided intra-ledger ordering (Stellar has{" "}
+          <b className="text-text">no public mempool</b>, and we don't rely on it being one). <b className="text-text">Assumptions:</b>{" "}
+          drand quicknet liveness + BLS unforgeability, plus the relay's permissionless, BLS-verified <C>push</C>.
         </p>
       </Sec>
 

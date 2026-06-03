@@ -7,7 +7,7 @@
 ▌ LEFT — Transparent DEX (SIMULATED constant-product AMM)
 ────────────────────────────────────────────────────────────────
 pool: 10000 X / 10000 USDC (price 1.00)
-alice broadcasts: buy X with 1000 USDC  →  visible in the mempool, cleartext
+alice broadcasts: buy X with 1000 USDC  →  visible on the transparent AMM, cleartext
 
 🤖 bot SEES alice's order and sandwiches it:
    1. front-run: bot buys 1,666.67 X with 2000 USDC → price pushed up

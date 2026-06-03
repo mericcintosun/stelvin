@@ -25,8 +25,8 @@ A single frontrunner bot, run against two markets — an institutional **tUSTB/U
 (tokenized US T-bill) block trade:
 
 - **Transparent AMM (simulated, real mechanics):** the bot sees one visible block
-  order in the mempool and sandwiches it → **+315.07 USDC profit; the desk loses
-  268.07 tUSTB** to slippage.
+  order on a transparent venue and sandwiches it → **+315.07 USDC profit; the desk
+  loses 268.07 tUSTB** to slippage.
 - **Stelvin (LIVE on testnet):** the contract runs in **permissioned (KYC) mode** —
   the desks are allowlisted and an un-KYC'd address is rejected on-chain. The *same
   bot* pulls the actual on-chain order and runs real `tlock` decrypt → **every
@@ -41,10 +41,14 @@ A recorded run is in [`demo/sample-run.txt`](./demo/sample-run.txt).
 
 ## The problem
 
-On any transparent exchange, the moment you send an order it's visible — bots
-jump ahead (frontrunning) and bend the price against you (sandwiching). Billions
-are extracted this way every year. A bot can only react to an order it can
-**see**. Stelvin makes orders physically invisible until they clear.
+On any transparent exchange your order is public the moment it lands — bots jump
+ahead (frontrunning) and bend the price against you (sandwiching). Billions are
+extracted this way every year. **Stellar has no public mempool**, so it dodges
+Ethereum's worst case — but front-running doesn't need one: transparent on-chain
+order books and AMM reserves leak your size and direction, and validators decide
+the order of transactions inside a ledger. A bot can only react to an order it can
+**see**, and a sequencer can only reorder one it can **read** — so Stelvin makes
+orders physically invisible until they all clear at one price.
 
 ## How it works (two layers)
 
@@ -181,9 +185,11 @@ and defensible:
 - **From whom:** all participants **and** the operator/settler — until round `R`.
 - **Technique:** drand timelock encryption (`tlock` = Boneh-Franklin IBE over
   BLS12-381; `tlock-js`), drand quicknet (`bls-unchained-g1-rfc9380`, 3s period).
-- **Threat model:** a mempool-watching frontrunning / sandwich / MEV adversary.
-  Pre-`R` there is no plaintext to observe; post-`R` everything clears atomically
-  at one price.
+- **Threat model:** a transaction-ordering / sandwich adversary — transparent
+  on-chain order books and AMM reserves, plus validator-decided intra-ledger
+  ordering (Stellar has **no public mempool**, and we don't rely on it being one).
+  Pre-`R` there is no plaintext to observe or reorder around; post-`R` everything
+  clears atomically at one price.
 - **Cryptographic assumptions:** drand quicknet beacon liveness + BLS signature
   unforgeability. For the on-chain key check we inherit the deployed relay's
   assumptions: `push` is permissionless and runs a full BLS pairing check before

@@ -51,8 +51,11 @@ function Problem() {
           Every order is visible the moment you send it. Bots jump ahead — and bend the price against you.
         </h2>
         <p className="mt-4 max-w-2xl text-text-dim">
-          Frontrunning and sandwiching extract billions every year. A bot can only react to an order it can{" "}
-          <span className="text-text">see</span>. Here's exactly that, with real mechanics:
+          Frontrunning and sandwiching extract billions every year. <span className="text-text">Stellar has no public
+          mempool</span> — a head start, not immunity: transparent order books and AMM reserves still expose your order,
+          and validators decide its place in the ledger. A bot can only react to an order it can{" "}
+          <span className="text-text">see</span>, and a sequencer can only reorder one it can{" "}
+          <span className="text-text">read</span>. Here's exactly that, with real mechanics:
         </p>
       </Reveal>
 

@@ -16,13 +16,18 @@ plan. It is the canonical "why" companion to the code.
 
 ## 1. The problem
 
-On a normal exchange your order is visible in the mempool / order book the
-moment you send it. Bots see it, jump ahead (frontrunning), and bend the price
-against you (sandwiching). Billions of dollars per year are extracted this way.
+On a transparent exchange your order is public the moment you send it — resting on
+an order book or visible in AMM reserves. Bots see it, jump ahead (frontrunning),
+and bend the price against you (sandwiching). Billions of dollars per year are
+extracted this way.
 
-A bot can only react to an order it can **see**. Stelvin makes orders physically
+**Stellar has no public mempool**, so it dodges Ethereum's worst case — but
+front-running doesn't *need* a mempool. Transparent on-chain order books and AMM
+reserves expose your size and direction, and transaction ordering inside a ledger
+is decided by validators. A bot can only react to an order it can **see**, and a
+sequencer can only reorder one it can **read**. Stelvin makes orders physically
 invisible until a future moment, so for the entire pre-reveal window there is
-nothing to frontrun. The guarantee is **temporal and cryptographic**: hidden
+nothing to frontrun and nothing to reorder around. The guarantee is **temporal and cryptographic**: hidden
 until round `R`, public after — by construction, not by trust.
 
 **Scope of the claim (precise).** *Intra-batch* frontrunning and sandwiching are
@@ -447,8 +452,10 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
 - **From whom:** all participants *and* the operator/settler — until round `R`.
 - **Technique:** drand timelock encryption (`tlock` = Boneh-Franklin IBE over
   BLS12-381; `tlock-js`).
-- **Threat model:** a frontrunning / sandwich / MEV adversary monitoring the
-  mempool and order state. Pre-`R` there is no order plaintext to observe;
+- **Threat model:** a transaction-ordering / sandwich adversary — transparent
+  on-chain order books and AMM reserves, plus validator-decided intra-ledger
+  ordering (Stellar has **no public mempool**, and we don't rely on it being one).
+  Pre-`R` there is no order plaintext to observe or reorder around;
   post-`R` everything clears atomically at one uniform price. The precise
   guarantee is that **intra-batch frontrunning and sandwiching are
   cryptographically eliminated** (no order to see, no ordering advantage) — see

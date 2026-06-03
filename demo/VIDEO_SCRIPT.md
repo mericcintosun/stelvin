@@ -28,9 +28,10 @@ Total: 3:00. Demo block ≈ 1:50.
 ### 0:35–1:15 — DEMO, LEFT panel: transparent DEX (the attack works)
 *(Run `npm run demo`; narrate the LEFT panel as it prints.)*
 > "Left: a normal transparent AMM. Alice sends a visible buy order. The bot sees
-> it in the mempool and sandwiches her — buys ahead, lets her fill at the worse
-> price, sells back. **The bot pockets 315 USDC; Alice loses 268 X to slippage.**
-> This is real MEV mechanics. This is the status quo."
+> it on-chain — no mempool needed, the order book and reserves are public — and
+> sandwiches her: buys ahead, lets her fill at the worse price, sells back.
+> **The bot pockets 315 USDC; Alice loses 268 X to slippage.** This is real MEV
+> mechanics. This is the status quo."
 
 ### 1:15–2:25 — DEMO, RIGHT panel: Stelvin (the attack is blind) — the money moment
 > "Right: the **same bot**, now against Stelvin — **live on Stellar testnet**.

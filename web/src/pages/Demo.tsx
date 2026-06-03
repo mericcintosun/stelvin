@@ -159,7 +159,7 @@ export default function Demo() {
           tone="attack"
           title="Transparent DEX"
           badge="Simulated AMM"
-          subtitle="Real constant-product mechanics — the order is visible in the mempool."
+          subtitle="Real constant-product mechanics — the order is public on-chain the moment it lands."
         >
           {!left && <Empty>Press run. The bot will sandwich a visible block order.</Empty>}
           {left && (
