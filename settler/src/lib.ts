@@ -60,6 +60,17 @@ export function getOrderCiphertext(orderId: number): string {
   const out = inv(E.GATE, "admin", `get_order --order_id ${orderId}`)
   return JSON.parse(out.match(/\{.*\}/s)?.[0] ?? "{}").ciphertext as string
 }
+export function getBatch(batchId: number): { reveal_round: number; status: string; order_ids: number[] } | null {
+  const out = inv(E.GATE, "admin", `get_batch --batch_id ${batchId}`)
+  const m = out.match(/\{.*\}/s)
+  if (!m) return null
+  const j = JSON.parse(m[0])
+  return {
+    reveal_round: Number(j.reveal_round),
+    status: String(j.status),
+    order_ids: (j.order_ids ?? []).map(Number),
+  }
+}
 
 export async function encryptOrder(R: number, o: Order): Promise<string> {
   const ct = await timelockEncrypt(R, Buffer.from(JSON.stringify(o)), client)

@@ -620,6 +620,86 @@ fn test_withdraw_fees_over_balance() {
     s.contract.withdraw_fees(&r, &s.quote, &1); // nothing accrued yet
 }
 
+// ── Overflow caps + randomized conservation (ADR-019) ───────────────────────
+
+/// An order field above the cap is rejected (keeps every product inside i128).
+#[test]
+#[should_panic(expected = "exceeds cap")]
+fn test_order_field_cap_rejected() {
+    let s = setup();
+    let env = &s.env;
+    let buyer = Address::generate(env);
+    let seller = Address::generate(env);
+    s.quote_admin.mint(&buyer, &1_000_000);
+    s.base_admin.mint(&seller, &1_000_000);
+    s.contract.deposit_funds(&buyer, &s.quote, &1_000_000);
+    s.contract.deposit_funds(&seller, &s.base, &1_000_000);
+    let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+    let batch_id = s.contract.create_batch(&reveal_round);
+    let ct = Bytes::from_slice(env, b"ct");
+    let bid = s.contract.submit_order(&buyer, &batch_id, &ct);
+    let sid = s.contract.submit_order(&seller, &batch_id, &ct);
+    let mut reveal: Vec<Revealed> = Vec::new(env);
+    // 1e17 > MAX_AMOUNT (1e16) → must be rejected before any multiplication.
+    reveal.push_back(revealed(env, bid, Side::Buy, 100_000_000_000_000_000, 10_000_000));
+    reveal.push_back(revealed(env, sid, Side::Sell, 100, 10_000_000));
+    let sigma = arm_relay(&s, reveal_round);
+    s.contract.settle(&batch_id, &sigma, &reveal);
+}
+
+/// Property test (deterministic LCG) over 80 funded scenarios: base conserves
+/// EXACTLY, quote conserves EXACTLY (buyer paid == seller received + protocol
+/// residual), residual >= 0, no balance negative, and settle NEVER reverts.
+#[test]
+fn test_conservation_randomized() {
+    let mut seed: u64 = 0x2545F4914F6CDD1D;
+    let mut rng = || {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        (seed >> 33) as i128
+    };
+    for _ in 0..80 {
+        let s = setup();
+        let env = &s.env;
+        let buyer = Address::generate(env);
+        let seller = Address::generate(env);
+        let bq = 1 + rng() % 5_000; // buyer quote balance
+        let sb = 1 + rng() % 5_000; // seller base balance
+        let amt_b = 1 + rng() % 400;
+        let amt_s = 1 + rng() % 400;
+        let pb = (1 + rng() % 25) * 1_000_000; // 0.1 .. 2.5
+        let ps = (1 + rng() % 25) * 1_000_000;
+        s.quote_admin.mint(&buyer, &bq);
+        s.base_admin.mint(&seller, &sb);
+        s.contract.deposit_funds(&buyer, &s.quote, &bq);
+        s.contract.deposit_funds(&seller, &s.base, &sb);
+        let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+        let batch_id = s.contract.create_batch(&reveal_round);
+        let ct = Bytes::from_slice(env, b"ct");
+        let bid = s.contract.submit_order(&buyer, &batch_id, &ct);
+        let sid = s.contract.submit_order(&seller, &batch_id, &ct);
+        let mut reveal: Vec<Revealed> = Vec::new(env);
+        reveal.push_back(revealed(env, bid, Side::Buy, amt_b, pb));
+        reveal.push_back(revealed(env, sid, Side::Sell, amt_s, ps));
+        let sigma = arm_relay(&s, reveal_round);
+        s.contract.settle(&batch_id, &sigma, &reveal); // must NOT revert
+
+        let buyer_base = s.contract.get_balance(&buyer, &s.base);
+        let seller_base_lost = sb - s.contract.get_balance(&seller, &s.base);
+        assert_eq!(buyer_base, seller_base_lost, "base conserved exactly");
+
+        let buyer_quote_spent = bq - s.contract.get_balance(&buyer, &s.quote);
+        let seller_quote_gain = s.contract.get_balance(&seller, &s.quote);
+        let fees = s.contract.get_fees(&s.quote);
+        assert!(fees >= 0, "residual non-negative");
+        assert_eq!(buyer_quote_spent, seller_quote_gain + fees, "quote conserved exactly");
+
+        assert!(s.contract.get_balance(&buyer, &s.quote) >= 0);
+        assert!(s.contract.get_balance(&seller, &s.base) >= 0);
+    }
+}
+
 /// Revoking KYC re-blocks a trader (allowlist is mutable by the compliance role).
 #[test]
 #[should_panic(expected = "KYC allowlist")]

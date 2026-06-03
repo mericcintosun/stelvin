@@ -1,10 +1,10 @@
 # Stelvin
 
-**A fair execution venue — an on-chain dark pool — for tokenized RWAs and
-institutional flows on Stellar Soroban. Orders are drand-timelock-encrypted and
-unreadable by anyone (operator and settler included) until they all clear at one
-uniform price. MEV isn't promised away; it's cryptographically impossible to
-react to.**
+**A sealed-bid batch DEX on Stellar Soroban: orders are drand-timelock-encrypted
+and unreadable by anyone (operator and settler included) until they all clear at
+one uniform price. Fair execution for Stellar DeFi traders today; the on-chain
+dark pool for tokenized-RWA & institutional flows next. MEV isn't promised away;
+it's cryptographically impossible to react to.**
 
 > Tracks: **Main** (automatic) + **Privacy** (primary). Build on Stellar — IBW 2026.
 > Judge-facing writeup: **[`SUBMISSION.md`](./SUBMISSION.md)** · deep rationale:
@@ -45,12 +45,36 @@ phenomena, not victim-specific MEV — we don't claim otherwise.
 The contract is in [`contracts/batch-gate`](./contracts/batch-gate); the settler +
 demo in [`settler/`](./settler).
 
+### Lifecycle — the adversary is blind until round R
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as Trader (desk)
+    participant C as BatchGate (Soroban)
+    participant B as drand beacon / relay
+    participant M as MEV bot (adversary)
+    T->>C: deposit_funds + submit_order(ciphertext sealed to R)
+    Note over M,C: pre-R: bot reads on-chain order = opaque ciphertext only
+    M-->>C: tlock decrypt attempt
+    C-->>M: "too early to decrypt — decryptable at round R"
+    B->>B: publishes round R (BLS signature σ_R)
+    Note over C,B: settle: assert sha256(σ_R) == relay.get(R)
+    T->>C: settle(σ_R, revealed[]) (permissionless)
+    C->>C: on-chain match → one uniform price P* → conservation-safe fills + fee
+    Note over M: nothing to front-run: no order seen before R, no ordering edge at R
+```
+
+Anyone can independently re-decrypt every settled order from the public `σ_R`
+(`cd settler && npm run verify`) — settlement is v1-optimistic but **publicly
+auditable**, by construction.
+
 ## Status
 
 - ✅ **M1 — Contract.** `deposit_funds`/`withdraw`, `create_batch`, `submit_order`,
   `lock_batch`, `settle` + on-chain matching, reveal dedup, one-order-per-trader
   guard, lifecycle events, **backward-compatible permissioned KYC allowlist** (RWA),
-  **conservation-safe protocol fee** (`fee_bps`). **21/21 unit tests** (conservation +
+  **conservation-safe protocol fee** (`fee_bps`). **23/23 unit tests** (conservation +
   no-revert + dedup + KYC gate + fee). `wasm32v1-none`.
 - ✅ **RWA pivot.** Asset-agnostic contract → demo trades a tokenized US T-bill
   (tUSTB) vs USDC near par; permissioned (KYC) mode allowlists desks and rejects
@@ -72,13 +96,13 @@ demo in [`settler/`](./settler).
 ## Run & verify
 
 ```sh
-cargo test -p batch-gate                  # 21/21 contract tests
+cargo test -p batch-gate                  # 23/23 contract tests
 bash scripts/deploy_and_smoke.sh          # deploy + end-to-end on testnet (one command)
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```
 
 Deployed (testnet, inspectable on stellar.expert): BatchGate
-`CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA` · Drand-Relay
+`CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB` · Drand-Relay
 `CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM`. Full address/figure
 table in [`SUBMISSION.md`](./SUBMISSION.md).
 

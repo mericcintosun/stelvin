@@ -1,11 +1,23 @@
 # Stelvin — Build on Stellar (IBW 2026)
 
-**A fair execution venue — an on-chain dark pool — for tokenized RWAs and
-institutional flows on Soroban. Orders are drand-timelock-encrypted and unreadable
-by anyone (operator and settler included) until they all clear at one uniform
-price. MEV isn't promised away; it's cryptographically impossible to react to.**
+**A sealed-bid batch DEX on Soroban: orders are drand-timelock-encrypted and
+unreadable by anyone (operator and settler included) until they all clear at one
+uniform price. Fair execution for Stellar DeFi traders today; the on-chain dark
+pool for tokenized-RWA & institutional flows next. MEV isn't promised away; it's
+cryptographically impossible to react to.**
 
 > Tracks: **Main** (automatic) + **Privacy** (primary).
+
+## Judging at a glance (criterion → evidence)
+
+| Criterion | Where we satisfy it |
+|---|---|
+| **Idea & real-world impact** | Provable MEV victim (sandwiching, ~1.2% of DEX trades) → §_Why it matters_, §_Real-world use case_; honest market read + CoW comp → §_Market & Business Model_ |
+| **Technical implementation** | 23/23 unit tests (conservation + revert-proof + KYC + fee + overflow caps + randomized property test); live on testnet; one-command e2e (`deploy_and_smoke.sh`); design rationale in `DECISIONS.md` (19 ADRs) |
+| **User experience** | Two-panel live showdown (sandwich vs sealed batch) + venue framing; feeder-resilient demo (auto-retry); read-only wallet connect |
+| **Ecosystem fit** | Composes a live on-chain BLS-verifying Drand-Relay + Noether SEP-40 oracle; native Soroban storage/auth/SAC; stellar CLI + RPC; `tlock-js` |
+| **Presentation & docs** | This file + `README.md` + `DECISIONS.md` + in-app `/docs`; lifecycle/adversary diagram; `demo/DEMO_SCRIPT.md` |
+| **Privacy side-track** | Disclosures (hidden / from-whom / technique / threat model / assumptions) → §_Privacy track_; **public auditor** artifact (`npm run verify`) |
 
 ## The "wow", in real numbers (both reproducible)
 
@@ -62,8 +74,10 @@ inverse: **proactive, fair-by-default infrastructure.** MEV cost Ethereum
 billions precisely *because* protection arrived after the damage. Stellar is
 positioned for real-world finance — payroll, settlement, institutional flow —
 where fairness is a requirement even at low MEV. Stelvin makes Soroban DeFi
-fair *before* MEV scales, using rails (native BLS12-381 host functions + a live
-on-chain BLS-verifying drand relay) that only exist here.
+fair *before* MEV scales, by **composing** rails that only exist here — a live,
+on-chain BLS12-381-verifying drand relay (which we call, not reimplement) on top of
+Stellar's native crypto. (Honest scope: our contract's own gate is a cheap sha256
+against the relay's verified commitment — the BLS pairing lives in the relay.)
 
 ## Real-world use case — tokenized RWA / institutional dark pool
 
@@ -72,25 +86,28 @@ The honest read above ("Stellar-native MEV is marginal today") is exactly why th
 treasuries, money-market funds) and institutions** — TVL up ~7× YoY, institutional
 wallets +51% in 2025. These are large-volume actors who care most about **intent
 privacy, fair execution, and compliance**. That reframes Stelvin from a retail toy
-into infrastructure. Four use cases, strongest → most speculative:
+into infrastructure. Four use cases, led by the **provable victim today**, then the
+growth wedge (honest ordering):
 
-1. **On-chain dark pool for RWA & institutional block trades (strongest).** A
+1. **Fair execution for active Stellar DeFi traders (provable today).** The
+   measured, citable victim: traders losing bps to sandwiching / front-running
+   (~1.2% of DEX trades, avg 0.41% loss). Sealed batches remove it by construction
+   — fair-by-default *before* MEV scales on Soroban. This is the problem we can
+   prove now, and it's exactly what the live demo shows.
+2. **On-chain dark pool for RWA & institutional block trades (biggest upside).** A
    fund/treasury/anchor rotating a large position (e.g. $1M tokenized T-bill →
-   USDC) leaks intent if it broadcasts, and the price moves against it. Traditional
-   finance built **dark pools** for exactly this (~15% of US equity volume).
-   Stelvin is the on-chain dark pool — fair, sealed, large-block — for Stellar's
-   real users. *Fundable product, not a prototype.*
-2. **Fair stablecoin / FX conversion (USDC↔EURC corridors).** Stellar's core is
+   USDC) leaks intent if it broadcasts. TradFi built **dark pools** for exactly this
+   (~15% of US equity volume). Stelvin is the on-chain version — the growth wedge as
+   Stellar's RWA/institutional flow scales (honest: that flow is small *today*).
+3. **Fair stablecoin / FX conversion (USDC↔EURC corridors).** Stellar's core is
    cross-border payments/FX; front-running a large conversion is real loss. A
-   sealed batch gives institutions a fair mid-price venue — Stellar's home turf.
-3. **Fair RWA primary issuance / token launch.** Sealed-batch price discovery
+   sealed batch gives a fair mid-price venue — Stellar's home turf.
+4. **Fair RWA primary issuance / token launch.** Sealed-batch price discovery
    defuses sniping/front-running at issuance and allocation.
-4. **Proactive retail MEV protection.** Marginal on Stellar today, but DEX volume
-   is ~$3.5T/yr and growing; valuable as Soroban DeFi scales — fair *before* the
-   damage arrives.
 
-**Sharpest positioning:** *a fair execution venue — an on-chain dark pool — for
-tokenized RWAs and institutional flows on Stellar.*
+**Sharpest positioning:** *fair execution for Stellar DeFi traders today — and the
+on-chain dark pool for tokenized-RWA & institutional flows Stellar is winning next.*
+(We lead with the provable problem; RWA is the upside, not an unevidenced claim.)
 
 **Why this is real, not a relabel.** The contract is **asset-agnostic** (the base
 asset is any token address), so the demo trades a tokenized US T-bill (`tUSTB`) vs
@@ -208,17 +225,17 @@ Deployed on Stellar **testnet**; judges can inspect on
 
 | Item | Value |
 |---|---|
-| BatchGate (permissioned RWA) | `CCIX73WH4G6K3BGIUJ3TNOVCIRD6WFYXQFTINJIQCNVC2BYGYSXM2PLY` |
+| BatchGate (permissioned RWA) | `CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB` |
 | Drand-Relay (oracle, called) | `CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM` |
-| Test tUSTB / USDC SACs | `CBBEJ6DG2UAH4ZTR7LEYPUVJ6WRXOLH7BNCKYYUVZM4TO2AW3IDZ3EZK` / `CDPUH33N4ZR72YVIXPOHVKEP55T3SONR3T3JS4W5JNSXTOPR5FSZIEE6` |
-| Contract | 21/21 unit tests, wasm 29,208 bytes, `wasm32v1-none` |
+| Test tUSTB / USDC SACs | `CAUDJW4XV2AFXCNUYVHU6IIM5D27745Z6NYFH5PGSTFDYAGQJO5BDZQU` / `CAE7ERCVPJ5MIC7TI3PRDBNMXD4WYIZV7A6Q5ZR33QVDRV2364JLGBBO` |
+| Contract | 23/23 unit tests, wasm 29,258 bytes, `wasm32v1-none` |
 | KYC gate (live) | permissioned mode on; un-KYC'd address rejected on-chain (`PermissionedSet`/`KycSet` events) |
-| Live RWA settle | round `29214673`, `P*=1.00` (par), 10,000 tUSTB ↔ 9,998 USDC, **2 bps fee accrued + withdrawn** |
+| Live RWA settle | round `29217096`, `P*=1.00` (par), 10,000 tUSTB ↔ 9,998 USDC, **2 bps fee accrued + withdrawn**; re-decryptable by anyone via `npm run verify` |
 | Sigma encoding | CLI-verified (round `29196000`): `sha256(48B compressed sig)==relay.get(R)` |
 
 **Test it:**
 ```sh
-cargo test -p batch-gate                 # 21/21 contract tests
+cargo test -p batch-gate                 # 23/23 contract tests
 bash scripts/deploy_and_smoke.sh         # one command: deploy + e2e on testnet
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```
@@ -229,7 +246,7 @@ cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
   matching, conservation-safe + revert-proof settlement, drand timing/key gate).
 - ✅ **RWA pivot** (ADR-017): asset-agnostic core → tUSTB/USDC near par; backward-
   compatible permissioned **KYC allowlist** (un-KYC'd address rejected on-chain).
-  21/21 tests; positioned as an on-chain dark pool for RWA / institutional flows.
+  23/23 tests; positioned as an on-chain dark pool for RWA / institutional flows.
 - ✅ **M2** testnet deploy + one-command end-to-end smoke test.
 - ✅ **M3** real `tlock` settler (encrypt → submit → unreadable-pre-`R` → decrypt → settle).
 - ✅ **M5** frontrunner-bot demo (transparent-AMM sandwich vs sealed batch).
@@ -251,9 +268,11 @@ cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
   check** — Stelvin's price still comes from the sealed orders — and it's
   **strictly non-blocking**: if the oracle is paused/stale/unreachable the demo
   proceeds unchanged and shows *"oracle reference unavailable."*
-- **Built directly on Stellar rails:** native Soroban BLS12-381 host functions
-  and the live, on-chain BLS-verifying Drand-Relay — the timelock gate exists
-  *because* of capabilities unique to this network.
+- **Composes Stellar rails (honest):** the timelock gate is enforced by the live,
+  on-chain BLS12-381-verifying Drand-Relay we *call* (not reimplement) + Noether's
+  SEP-40 oracle, atop native Soroban crypto. Our contract's own check is a cheap
+  sha256 against the relay's verified commitment — composition, not a borrowed BLS
+  implementation. The gate exists *because* of capabilities unique to this network.
 
 ## Tracks
 

@@ -343,7 +343,7 @@ definition `Σbuy_quote == Σseller_quote + protocol_fee` — quote conserves ex
 base is untouched. With `fee_bps == 0` the residual is just the prior rounding dust,
 so the original 12 + ADR-017's tests and the open demo behave identically. Covered by
 `test_fee_conserves_accrues_and_withdraws`, `test_set_fee_bps_cap`,
-`test_withdraw_fees_over_balance`, `test_fee_default_zero` (21/21 total).
+`test_withdraw_fees_over_balance`, `test_fee_default_zero` (21 at that stage; 23/23 after ADR-019).
 **Demo value.** The demo runs a block-size trade (10,000 tUSTB) at a CoW-matched
 **2 bps** fee, so the accrued fee is real and visible on-chain; admin
 `withdraw_fees` realizes it as revenue.
@@ -352,6 +352,40 @@ so the original 12 + ADR-017's tests and the open demo behave identically. Cover
 reference price per trade — extra oracle surface and trust. v1 ships the simple,
 fully-conservation-safe `fee_bps`; surplus capture is display-only in the demo and
 on the roadmap. We don't claim it as implemented.
+
+### ADR-019 — Hardening from the adversarial persona review (caps, feeder-retry, public auditor, honest ecosystem-fit)
+**Decision.** Close the concrete gaps surfaced by a six-persona objective review,
+without touching the matching engine or risking the working floor:
+1. **Order-field overflow caps.** Soroban release builds don't trap on i128 overflow,
+   so settler-supplied `amount`/`limit_price` are bounded (`MAX_AMOUNT = 1e16`,
+   `MAX_PRICE = 1e15`) in the reveal validation — the hottest product `amount·m`
+   (m ≤ MAX_ORDERS·MAX_AMOUNT) stays ≈1.6e33, >5 orders of magnitude inside i128.
+   Covered by `test_order_field_cap_rejected`.
+2. **Randomized conservation property test.** `test_conservation_randomized` runs 80
+   deterministic-LCG scenarios asserting base conserves exactly, quote conserves
+   exactly (buyer paid == seller received + protocol residual), residual ≥ 0, and
+   no revert — turning the conservation claim from hand-picked into property-style.
+   (No new crate; LCG keeps it `no_std`-friendly.)
+3. **Feeder-resilient demo (off-chain).** drand's on-chain feeder occasionally
+   *skips* the target round R (latest advances past R while `get(R)` stays null).
+   The settler/SSE demo now detects the skip and **auto-retries** with a fresh batch,
+   surfacing an amber "beacon skipped — retrying" (never blaming the venue); the
+   recorded `demo/sample-run.txt` remains the last-resort fallback. This is the
+   single highest live-demo risk, mitigated entirely off-chain.
+4. **Public-auditability artifact.** `settler/src/verify.ts` (`npm run verify`)
+   re-decrypts every on-chain order for a settled batch from the *public* `sigma_R`
+   — no settler trust, no admin keys — making "v1-optimistic but publicly auditable"
+   (ADR-014) a live, runnable artifact rather than a promise.
+**Honesty correction (ecosystem-fit).** Docs/site no longer imply we *implement*
+native BLS12-381. The BLS pairing lives in the deployed Drand-Relay we **call**;
+our contract's gate is a cheap `sha256` against the relay's verified commitment.
+We frame this as composition, not a borrowed crypto claim.
+**Positioning correction.** Lead with the *provable* victim (active Stellar DeFi
+trader losing bps to sandwiching) and frame RWA/institutional as the growth wedge —
+aligning the pitch with the evidence base (the measured problem is retail-AMM MEV).
+**Why no-revert is unaffected.** Caps only *reject* oversized inputs before any
+multiplication; they don't change the floor-then-trim math (ADR-010), so the
+revert-proof + conservation guarantees hold. 23/23 tests green.
 
 ## 5. Contract reference (BatchGate + Escrow)
 
@@ -437,8 +471,8 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
 ## 7. MVP scope
 
 **In:**
-- BatchGate + Escrow Soroban contract — **done**, 21/21 unit tests, wasm builds
-  (29,208 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate
+- BatchGate + Escrow Soroban contract — **done**, 23/23 unit tests, wasm builds
+  (29,258 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate
   (ADR-017) and the conservation-safe protocol fee (ADR-018).
 - Dual-asset (RWA `tUSTB`/USDC in the demo), standing balances, sealed orders, on-chain uniform-price
   matching, conservation-safe + revert-proof settlement, drand timing+key gate,
@@ -469,7 +503,7 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
   `create_batch`/`submit_order` (balance guard), `lock_batch`, `settle` +
   `match_and_settle` (global feasibility scalar, floor-then-trim), reveal dedup,
   lifecycle events, one-order-per-trader guard, RWA/KYC allowlist gate (ADR-017).
-  21 tests incl. conservation + no-revert + dedup + per-trader + KYC + protocol fee; wasm release build green.
+  23 tests incl. conservation + no-revert + dedup + per-trader + KYC + fee + overflow caps + randomized property test; wasm release build green.
 - **M2 — Deploy & wire (done).** Two test SACs (X, USDC) + BatchGate deployed to
   testnet against the live relay; full end-to-end CLI smoke-test **passed and is
   reproducible** via `scripts/deploy_and_smoke.sh` (one command:
@@ -478,7 +512,7 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
   balances change at the uniform clearing price). Confirmed: 100 X traded for 80
   USDC at `P*=0.8` (tie-break picked the lower crossing limit), conservation
   exact, `BatchSettled` event emitted. Latest BatchGate:
-  `CBANDFRY6BXQRGRUXIJB6VUZHVH6E4JZIVWBY6JURFRHPWJQ7WT5UOFA`. Next: typed
+  `CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB`. Next: typed
   frontend bindings.
 - **M3 — Settler (done).** `settler/` (TypeScript, `tlock-js`). Step 0 proved the
   isolated quicknet round-trip in isolation (encrypt→R, **undecryptable before R**,
