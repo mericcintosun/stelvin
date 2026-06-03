@@ -4,7 +4,9 @@
 # from env vars (see docker-entrypoint.sh) — no secrets baked into the image.
 FROM node:20-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+# libdbus-1-3: the stellar CLI binary dynamically links libdbus-1.so.3 at load
+# time (OS keychain integration); without it the binary won't even run on slim.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates libdbus-1-3 \
     && rm -rf /var/lib/apt/lists/*
 
 # stellar CLI binary, matching the version used to build/deploy the contract.
