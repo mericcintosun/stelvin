@@ -14,6 +14,7 @@ import express from "express"
 import {
   E, inv, asInt, sleep, RWA,
   relayLatestRound, relayGet, getBalance, getOrderCiphertext, getFees,
+  getPermissioned, isKyc, getFeeBps,
   encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
 
@@ -63,12 +64,14 @@ app.get("/api/demo", async (req, res) => {
       botProfit: +(usdcBack - botUSDC).toFixed(2), aliceLoss: +(xFair - xAlice).toFixed(2),
     })
 
-    // ── RIGHT: Stelvin live. Permissioned (RWA/KYC) + venue fee, idempotent. ──
+    // ── RIGHT: Stelvin live. Permissioned (RWA/KYC) + venue fee. Read first and
+    // only send the txs that are actually needed — skips ~20s on repeat runs. ──
+    emit("phase", { key: "setup", label: "Configuring the permissioned venue (KYC + fee)…" })
     try {
-      inv(E.GATE, "admin", `set_permissioned --enabled true`)
-      inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
-      inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
-      inv(E.GATE, "admin", `set_fee_bps --bps ${RWA.feeBps}`)
+      if (!getPermissioned()) inv(E.GATE, "admin", `set_permissioned --enabled true`)
+      if (!isKyc(E.ALICE)) inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
+      if (!isKyc(E.BOB)) inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
+      if (getFeeBps() !== RWA.feeBps) inv(E.GATE, "admin", `set_fee_bps --bps ${RWA.feeBps}`)
       emit("kyc", { permissioned: true, base: RWA.base, quote: RWA.quote, feeBps: RWA.feeBps })
     } catch {
       emit("kyc", { permissioned: false, note: "gate not permissioned (legacy deploy)" })
@@ -79,10 +82,12 @@ app.get("/api/demo", async (req, res) => {
 
     let settledOk = false
     for (let attempt = 1; attempt <= MAX_ATTEMPTS && !settledOk; attempt++) {
+      emit("phase", { key: "batch", label: "Opening a sealed batch on-chain…" })
       const R = relayLatestRound() + 20
       const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
       emit("batch_opened", { batchId, R, attempt })
 
+      emit("phase", { key: "submit", label: "Encrypting + submitting sealed orders…" })
       const aHex = await encryptOrder(R, alice)
       const bHex = await encryptOrder(R, bob)
       const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))

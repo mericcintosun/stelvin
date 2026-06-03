@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/target
+web
+contracts
+Drand-Relay
+stellar-build
+stellar-ai-guide
+noether-web
+.git
+.stelvin
+demo
+*.md

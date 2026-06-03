@@ -57,11 +57,11 @@ export function Nav({ route }: { route: Route }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:inline-flex">
-            <Button size="md" onClick={() => navigate("/demo")}>
-              {route === "/demo" ? "↻ Re-run" : "Live demo"}
-            </Button>
-          </span>
+          {route !== "/demo" && (
+            <span className="hidden sm:inline-flex">
+              <Button size="md" onClick={() => navigate("/demo")}>Live demo</Button>
+            </span>
+          )}
           <button
             className="grid h-9 w-9 place-items-center rounded-md border border-border text-text-dim md:hidden"
             onClick={() => setOpen((v) => !v)}

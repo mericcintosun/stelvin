@@ -28,6 +28,15 @@ export const RWA = { base: "tUSTB", quote: "USDC", nav: 1.0, block: 10_000, feeB
 export function getFees(asset: string): number {
   return asInt(inv(E.GATE, "admin", `get_fees --asset ${asset}`))
 }
+export function getPermissioned(): boolean {
+  return /true/.test(inv(E.GATE, "admin", "get_permissioned"))
+}
+export function isKyc(trader: string): boolean {
+  return /true/.test(inv(E.GATE, "admin", `is_kyc --trader ${trader}`))
+}
+export function getFeeBps(): number {
+  return asInt(inv(E.GATE, "admin", "get_fee_bps"))
+}
 
 export function loadEnv(): Record<string, string> {
   const env: Record<string, string> = {}
