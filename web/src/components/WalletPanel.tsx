@@ -87,6 +87,8 @@ export function WalletPanel() {
     const sac = depAsset === "usdc" ? ADDRESSES.usdcSac : ADDRESSES.tustbSac
     const amt = Math.floor(Number(depAmount))
     if (!(amt > 0)) return setNote({ kind: "err", text: "enter a positive amount" })
+    if (status?.permissioned && !status?.kyc)
+      return setNote({ kind: "err", text: "Permissioned venue — click 'Allowlist my desk (KYC)' first, then Get test tokens." })
     await act("Deposit", async () => (await import("../lib/wallet")).deposit(address, sac, amt))
   }
 
@@ -95,6 +97,10 @@ export function WalletPanel() {
     const amt = Math.floor(Number(ordAmount))
     const price = Math.round(Number(ordPrice) * 1e7)
     if (!(amt > 0) || !(price > 0)) return setNote({ kind: "err", text: "enter a positive amount and price" })
+    if (status?.permissioned && !status?.kyc)
+      return setNote({ kind: "err", text: "Permissioned venue — allowlist your desk (KYC) first." })
+    if (!status || (status.tustb === 0 && status.usdc === 0))
+      return setNote({ kind: "err", text: "Deposit a funded balance first — the contract requires it to submit." })
     await act("Submit sealed order", async () => {
       const w = await import("../lib/wallet")
       const b = await fetch(`${BACKEND}/api/open-batch`).then((x) => x.json())
