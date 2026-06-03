@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, Eyebrow, Pill } from "../components/primitives"
 import { WalletPanel } from "../components/WalletPanel"
@@ -35,14 +35,25 @@ export default function Demo() {
   const [retry, setRetry] = useState<{ R: number; remaining: number } | null>(null)
   const [exhausted, setExhausted] = useState(false)
   const [right, setRight] = useState<Right>({ attempts: [] })
+  const [secsLeft, setSecsLeft] = useState(0) // smooth per-second countdown to round R
+  const [maxSecs, setMaxSecs] = useState(0)
+  const [phase, setPhase] = useState<string | null>(null) // current prep step label
   const esRef = useRef<EventSource | null>(null)
   const timersRef = useRef<number[]>([])
+
+  // Tick the countdown locally every second so it never looks frozen between
+  // the ~3s-apart bot attempts; each attempt re-syncs it to the real value.
+  useEffect(() => {
+    if (!running) return
+    const id = window.setInterval(() => setSecsLeft((s) => (s > 0 ? s - 1 : 0)), 1000)
+    return () => clearInterval(id)
+  }, [running])
 
   function run() {
     esRef.current?.close()
     timersRef.current.forEach(clearTimeout); timersRef.current = []
     setRunning(true); setDone(false); setErr(null); setLeft(null); setLeftStage(0)
-    setRetry(null); setExhausted(false); setRight({ attempts: [] })
+    setRetry(null); setExhausted(false); setRight({ attempts: [] }); setSecsLeft(0); setMaxSecs(0); setPhase("Connecting to the live demo…")
     const es = new EventSource(`${BACKEND}/api/demo`)
     esRef.current = es
     es.onmessage = (ev) => {
@@ -59,10 +70,16 @@ export default function Demo() {
           break
         case "kyc": setRight((p) => ({ ...p, permissioned: e.permissioned })); break
         case "kyc_reject": setRight((p) => ({ ...p, kycReject: e.blocked })); break
-        case "batch_opened": setRetry(null); setRight((p) => ({ ...p, batchId: e.batchId, R: e.R, attempts: [], revealed: false })); break
+        case "batch_opened": setRetry(null); setSecsLeft(0); setMaxSecs(0); setRight((p) => ({ ...p, batchId: e.batchId, R: e.R, attempts: [], revealed: false })); break
         case "orders_submitted": setRight((p) => ({ ...p, aoid: e.aoid, boid: e.boid, ciphertext: e.ciphertext, bytes: e.bytes })); break
-        case "bot_attempt": setRight((p) => ({ ...p, attempts: [...p.attempts, e as Attempt] })); break
-        case "feeder_skip": setRetry({ R: e.R, remaining: e.remaining }); break
+        case "phase": setPhase(e.label); break
+        case "bot_attempt":
+          setPhase(null)
+          setSecsLeft(e.secondsLeft)
+          setMaxSecs((m) => Math.max(m, e.secondsLeft))
+          setRight((p) => ({ ...p, attempts: [...p.attempts, e as Attempt] }))
+          break
+        case "feeder_skip": setSecsLeft(0); setMaxSecs(0); setRetry({ R: e.R, remaining: e.remaining }); break
         case "reveal": setRetry(null); setRight((p) => ({ ...p, revealed: true })); break
         case "settled": setRight((p) => ({ ...p, ...e })); break
         case "oracle": setRight((p) => ({ ...p, oracle: e as Oracle })); break
@@ -78,8 +95,8 @@ export default function Demo() {
     }
   }
 
-  const latest = right.attempts[right.attempts.length - 1]
   const settled = right.price !== undefined
+  const progress = maxSecs > 0 ? Math.min(100, Math.max(0, ((maxSecs - secsLeft) / maxSecs) * 100)) : 0
 
   return (
     <main className="relative mx-auto max-w-content px-5 pb-24 pt-28 sm:px-6 sm:pt-32">
@@ -157,7 +174,24 @@ export default function Demo() {
           badge="Sealed batch"
           subtitle="The same bot reads the real on-chain ciphertext and runs tlock decrypt."
         >
-          {!right.batchId && <Empty>Press run. The same bot will try to read a sealed order.</Empty>}
+          {!running && !right.batchId && !settled && <Empty>Press run. The same bot will try to read a sealed order.</Empty>}
+
+          {/* preparing — fills the on-chain setup wait with real progress */}
+          {running && !settled && !right.revealed && right.attempts.length === 0 && (
+            <div className="mt-4 rounded-[var(--radius-sm)] border border-sealed/30 bg-sealed/5 p-4">
+              <div className="flex items-center gap-2 text-sm text-text-dim">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-sealed/30 border-t-sealed" />
+                {phase ?? "Preparing…"}
+              </div>
+              <ul className="mt-3 space-y-1.5">
+                <PrepStep label="Permissioned venue configured (KYC + fee)" done={right.permissioned !== undefined} />
+                <PrepStep label="Sealed batch opened on-chain" done={right.batchId !== undefined} />
+                <PrepStep label="Sealed orders submitted" done={Boolean(right.ciphertext)} />
+                <PrepStep label="Waiting for drand round R" done={false} />
+              </ul>
+              <div className="mt-2 text-[11px] text-text-muted">Each step is a real on-chain transaction — a few seconds each.</div>
+            </div>
+          )}
 
           {right.permissioned && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -185,28 +219,41 @@ export default function Demo() {
             </div>
           )}
 
-          {/* countdown while sealed */}
+          {/* countdown while sealed — ticks every second so it never looks frozen */}
           <AnimatePresence>
             {right.attempts.length > 0 && !right.revealed && (
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="mt-4 flex items-center gap-4 rounded-[var(--radius-sm)] border border-sealed/30 bg-sealed/5 p-4"
+                className="mt-4 rounded-[var(--radius-sm)] border border-sealed/30 bg-sealed/5 p-4"
               >
-                <div className="text-center">
-                  <div className="font-mono text-3xl font-semibold text-sealed-300 tabular-nums">{latest?.secondsLeft}s</div>
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-text-muted">until round R</div>
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="font-mono text-3xl font-semibold text-sealed-300 tabular-nums">{secsLeft}s</div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-text-muted">until round R</div>
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    {right.attempts.slice(-3).map((a) => (
+                      <motion.div
+                        key={a.n}
+                        initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center justify-between gap-2 font-mono text-xs"
+                      >
+                        <span className="text-text-muted">🤖 attempt #{a.n}</span>
+                        <span className="text-warn">✗ too early</span>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex-1 space-y-1">
-                  {right.attempts.slice(-3).map((a) => (
-                    <motion.div
-                      key={a.n}
-                      initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center justify-between gap-2 font-mono text-xs"
-                    >
-                      <span className="text-text-muted">🤖 attempt #{a.n}</span>
-                      <span className="text-warn">✗ too early</span>
-                    </motion.div>
-                  ))}
+                {/* progress to R */}
+                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-sealed/15">
+                  <div
+                    className="h-full rounded-full bg-sealed transition-[width] duration-1000 ease-linear"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sealed" />
+                  sealed — the bot can't read the order; everyone waits for the beacon
                 </div>
               </motion.div>
             )}
@@ -372,6 +419,14 @@ function Panel({
   )
 }
 
+function PrepStep({ label, done }: { label: string; done: boolean }) {
+  return (
+    <li className="flex items-center gap-2 text-xs">
+      <span className={done ? "text-revealed" : "text-text-muted"}>{done ? "✓" : "○"}</span>
+      <span className={done ? "text-text-dim" : "text-text-muted"}>{label}</span>
+    </li>
+  )
+}
 function Empty({ children }: { children: ReactNode }) {
   return <p className="mt-6 rounded-[var(--radius-sm)] border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted">{children}</p>
 }

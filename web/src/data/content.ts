@@ -3,9 +3,12 @@
 // / .stelvin/testnet.env, or to the cited public sources (MARKET). No drift.
 
 export const LINKS = {
-  github: "https://github.com/", // ← set to the public repo URL before launch
+  github: "https://github.com/mericcintosun/stelvin",
   explorer: "https://stellar.expert/explorer/testnet",
-  demoBackendDefault: "http://localhost:8787",
+  // Demo backend: build-time VITE_DEMO_BACKEND (set on the host), else localhost.
+  // Always overridable at runtime with ?backend=https://… on the demo URL.
+  demoBackendDefault:
+    (import.meta as { env?: Record<string, string> }).env?.VITE_DEMO_BACKEND || "http://localhost:8787",
 }
 
 export const ADDRESSES = {
