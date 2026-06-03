@@ -188,7 +188,7 @@ export function WalletPanel() {
                   {busy === "Deposit" ? "depositing…" : "Deposit"}
                 </Button>
               </div>
-              <div className="mt-1.5 text-[11px] text-text-muted">Pulls the SAC token into the venue (you sign in Freighter).</div>
+              <div className="mt-1.5 text-[11px] text-text-muted">Pulls the SAC token into the venue (you sign in Freighter). New wallet? Click <b className="text-text-dim">Get test tokens</b> first.</div>
             </div>
 
             {/* sealed order */}

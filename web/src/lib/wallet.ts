@@ -73,6 +73,30 @@ export async function readAccountStatus(address: string): Promise<AccountStatus>
 // `from.require_auth`) are satisfied by the source-account signature — no separate
 // auth-entry signing needed. sendTransaction returns PENDING; we poll to SUCCESS.
 
+/** Testnet bootstrap: a fresh Freighter account does not exist on-chain until it
+ *  is created + funded. friendbot does that (free, testnet only). Idempotent:
+ *  if the account already exists we skip. Needed before ANY signed action. */
+export async function ensureFunded(address: string): Promise<void> {
+  const { rpc } = await import("@stellar/stellar-sdk")
+  const server = new rpc.Server(NETWORK.rpc)
+  try {
+    await server.getAccount(address)
+    return // already exists
+  } catch {
+    /* not found → fund below */
+  }
+  const r = await fetch(`https://friendbot.stellar.org?addr=${encodeURIComponent(address)}`)
+  if (!r.ok) {
+    // 400 usually means it already got created in a race — verify before failing.
+    try { await server.getAccount(address); return } catch { /* fall through */ }
+    throw new Error("friendbot funding failed — try again in a moment")
+  }
+  for (let i = 0; i < 12; i++) {
+    try { await server.getAccount(address); return } catch { await new Promise((res) => setTimeout(res, 1500)) }
+  }
+  throw new Error("account funding not yet visible — retry in a few seconds")
+}
+
 async function freighterSign(xdrStr: string, address: string): Promise<string> {
   const api = await import("@stellar/freighter-api")
   const signed = await api.signTransaction(xdrStr, { networkPassphrase: NETWORK.passphrase, address })
@@ -98,6 +122,7 @@ async function submitSigned(signedXdr: string): Promise<string> {
 }
 
 async function invokeGate(method: string, scArgs: unknown[], address: string): Promise<string> {
+  await ensureFunded(address) // a fresh desk wallet must exist on-chain first
   const sdk = await import("@stellar/stellar-sdk")
   const { rpc, Contract, TransactionBuilder, BASE_FEE } = sdk
   const server = new rpc.Server(NETWORK.rpc)
@@ -159,6 +184,7 @@ export async function submitSealedOrder(
 /** Classic trustlines for the test assets, so the demo faucet can mint to a
  *  fresh desk. Signed by the desk via Freighter. */
 export async function establishTrustlines(address: string): Promise<string> {
+  await ensureFunded(address) // create + fund the desk wallet before it can trust assets
   const { rpc, Asset, Operation, TransactionBuilder, BASE_FEE } = await import("@stellar/stellar-sdk")
   const server = new rpc.Server(NETWORK.rpc)
   const account = await server.getAccount(address)
