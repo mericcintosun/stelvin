@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, Eyebrow, Pill } from "../components/primitives"
+import { WalletPanel } from "../components/WalletPanel"
 import { ADDRESSES, contractUrl, LINKS, shortAddr } from "../data/content"
 import { cn } from "../lib/cn"
 
@@ -93,6 +94,8 @@ export default function Demo() {
       </AnimatePresence>
 
       <JourneyStrip />
+
+      <WalletPanel />
 
       <div className="mt-8 grid gap-5 lg:grid-cols-2">
         {/* LEFT — transparent AMM */}

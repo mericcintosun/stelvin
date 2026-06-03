@@ -25,6 +25,20 @@ app.use((_req, res, next) => {
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, gate: E.GATE }))
 
+// Demo desk onboarding (Phase B · slice 2a): allowlist a connected wallet address.
+// DEMO ONLY — in production this is the RWA issuer / compliance role, not a public
+// endpoint. Here it lets a judge KYC their own Freighter address to see the gate flip.
+app.get("/api/kyc", (req, res) => {
+  const address = String(req.query.address ?? "")
+  if (!/^G[A-Z0-9]{55}$/.test(address)) return res.status(400).json({ ok: false, error: "invalid address" })
+  try {
+    inv(E.GATE, "admin", `set_kyc --trader ${address} --allowed true`)
+    res.json({ ok: true })
+  } catch (e) {
+    res.json({ ok: false, error: String((e as Error).message) })
+  }
+})
+
 app.get("/api/demo", async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream")
   res.setHeader("Cache-Control", "no-cache")
