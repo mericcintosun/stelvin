@@ -6,23 +6,53 @@
     <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#12100c" />
 
+    <!-- Primary SEO -->
     <title>Stelvin — Sealed orders. One fair price. Zero front-running.</title>
     <meta
       name="description"
-      content="A sealed-bid batch DEX on Stellar Soroban. Orders are timelock-encrypted and unreadable by anyone — us included — until they clear at one uniform price. MEV isn't promised away; it's cryptographically impossible to react to."
+      content="Stelvin is a sealed-bid, uniform-price batch DEX on Stellar Soroban. Orders are drand-timelock-encrypted and unreadable by anyone — operator and settler included — until they clear on-chain at one fair price. MEV isn't promised away; it's cryptographically impossible to react to."
     />
+    <meta
+      name="keywords"
+      content="Stelvin, Stellar, Soroban, MEV, MEV-resistant, batch auction, sealed-bid, frequent batch auction, timelock encryption, drand, tlock, BLS12-381, IBE, DeFi, DEX, dark pool, tokenized RWA, front-running, sandwich attack, uniform price, fair execution"
+    />
+    <meta name="author" content="Stelvin" />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="Stelvin" />
+    <link rel="canonical" href="https://stelvin-six.vercel.app/" />
 
-    <!-- Open Graph / Twitter (image slot in /public/assets — see assets/README.md) -->
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="/favicon-512.png" />
+    <link rel="shortcut icon" type="image/png" href="/favicon-512.png" />
+    <link rel="apple-touch-icon" href="/favicon-512.png" />
+    <meta name="apple-mobile-web-app-title" content="Stelvin" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stelvin" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://stelvin-six.vercel.app/" />
     <meta property="og:title" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
-    <meta property="og:description" content="A timelock-sealed batch DEX on Stellar. MEV: cryptographically impossible to react to. Live on testnet." />
-    <meta property="og:image" content="/assets/og-image.png" />
+    <meta
+      property="og:description"
+      content="A timelock-sealed batch DEX on Stellar Soroban. Intra-batch MEV is cryptographically impossible to react to. Live on testnet — verify it yourself."
+    />
+    <meta property="og:image" content="https://stelvin-six.vercel.app/og.png" />
+    <meta property="og:image:secure_url" content="https://stelvin-six.vercel.app/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1731" />
+    <meta property="og:image:height" content="909" />
+    <meta property="og:image:alt" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
+
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
-    <meta name="twitter:description" content="A timelock-sealed batch DEX on Stellar. Live on testnet — verify it yourself." />
-    <meta name="twitter:image" content="/assets/og-image.png" />
-
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <meta
+      name="twitter:description"
+      content="A timelock-sealed batch DEX on Stellar Soroban. MEV: cryptographically impossible to react to. Live on testnet."
+    />
+    <meta name="twitter:image" content="https://stelvin-six.vercel.app/og.png" />
+    <meta name="twitter:image:alt" content="Stelvin — Sealed orders. One fair price. Zero front-running." />
 
     <!-- Fonts: Space Grotesk (headings) · Inter (body) · JetBrains Mono (numbers/code) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -31,6 +61,24 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Structured data (SEO rich results) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Stelvin",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web",
+        "url": "https://stelvin-six.vercel.app/",
+        "image": "https://stelvin-six.vercel.app/og.png",
+        "description": "A sealed-bid, uniform-price batch DEX on Stellar Soroban. Orders are drand-timelock-encrypted and unreadable by anyone until they clear on-chain at one fair price, eliminating intra-batch MEV by construction.",
+        "softwareVersion": "1.0",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "sameAs": ["https://github.com/mericcintosun/stelvin", "https://youtu.be/KT6lK-5Y_OQ"]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

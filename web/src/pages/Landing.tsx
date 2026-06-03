@@ -2,7 +2,7 @@ import { motion } from "motion/react"
 import ScrollVideoHero from "../components/ScrollVideoHero"
 import { Button, Counter, Eyebrow, Pill, Reveal, Section, ShinyText, SpotlightCard } from "../components/primitives"
 import { navigate } from "../lib/router"
-import { LogoMark } from "../components/Logo"
+import { LogoFull } from "../components/Logo"
 import {
   ADDRESSES,
   COMPLIANCE,
@@ -392,8 +392,8 @@ function Credibility() {
     <Section>
       <Reveal>
         <div className="ring-grad relative overflow-hidden rounded-[var(--radius-lg)] border border-border bg-gradient-to-b from-surface/80 to-bg-soft/40 p-8 text-center sm:p-12">
-          <div className="mx-auto mb-6 grid h-14 w-14 place-items-center">
-            <LogoMark size={48} />
+          <div className="mx-auto mb-6 flex justify-center">
+            <LogoFull className="h-16 w-auto" />
           </div>
           <h2 className="mx-auto max-w-2xl text-h2">Every number is real. Verify it yourself.</h2>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
