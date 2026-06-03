@@ -11,8 +11,15 @@ export const LINKS = {
 export const ADDRESSES = {
   // Permissioned RWA BatchGate (tUSTB/USDC) — deployed on testnet.
   batchGate: "CCIX73WH4G6K3BGIUJ3TNOVCIRD6WFYXQFTINJIQCNVC2BYGYSXM2PLY",
+  tustbSac: "CBBEJ6DG2UAH4ZTR7LEYPUVJ6WRXOLH7BNCKYYUVZM4TO2AW3IDZ3EZK",
+  usdcSac: "CDPUH33N4ZR72YVIXPOHVKEP55T3SONR3T3JS4W5JNSXTOPR5FSZIEE6",
   drandRelay: "CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM",
   noetherOracle: "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4",
+}
+
+export const NETWORK = {
+  rpc: "https://soroban-testnet.stellar.org",
+  passphrase: "Test SDF Network ; September 2015",
 }
 
 export const contractUrl = (id: string) => `${LINKS.explorer}/contract/${id}`
