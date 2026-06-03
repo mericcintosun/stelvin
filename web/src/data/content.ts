@@ -10,7 +10,7 @@ export const LINKS = {
 
 export const ADDRESSES = {
   // Permissioned RWA BatchGate (tUSTB/USDC) — deployed on testnet.
-  batchGate: "CBUH3NCNUXCLIBSHNAH2NJFCXHMGUWCRT2QTHDCLSH55MLPOCSDF44DP",
+  batchGate: "CCIX73WH4G6K3BGIUJ3TNOVCIRD6WFYXQFTINJIQCNVC2BYGYSXM2PLY",
   drandRelay: "CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM",
   noetherOracle: "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4",
 }
@@ -34,8 +34,8 @@ export const CRYPTO = {
   scheme: "bls-unchained-g1-rfc9380",
   beacon: "drand quicknet",
   period: "3s",
-  tests: "17 / 17",
-  wasmBytes: "26,099",
+  tests: "21 / 21",
+  wasmBytes: "29,208",
   target: "wasm32v1-none",
 }
 
@@ -105,8 +105,8 @@ export const MARKET = [
 ]
 
 export const REVENUE = [
-  "Trading fee on matched volume (a few bps) — primary, like CoW",
-  "Surplus capture — share of the price improvement vs a transparent venue",
+  "Trading fee on matched volume — primary, like CoW. Live on-chain (2 bps, conservation-safe, admin-withdrawable)",
+  "Surplus capture — share of the price improvement vs a transparent venue (roadmap, reference-priced)",
   "Institutional / B2B venue access (block-trade desk onboarding)",
   "White-label — license the sealed-batch engine to anchors & RWA platforms",
   "Protocol token — fee capture / governance",
@@ -114,7 +114,6 @@ export const REVENUE = [
 
 export const CREDIBILITY = [
   `${CRYPTO.tests} tests`,
-  "Live on testnet",
   "Permissioned KYC gate",
   "Verifiable on stellar.expert",
   "Open source · MIT",

@@ -21,6 +21,7 @@ type Right = {
   attempts: Attempt[]; revealed?: boolean
   price?: number; base?: string; nav?: number; navDeviationPct?: number
   matched?: number; aliceGainBase?: number; bobGainUsdc?: number; frontrunAttempts?: number
+  feeQuote?: number; feeBps?: number
   oracle?: Oracle
 }
 
@@ -64,7 +65,7 @@ export default function Demo() {
     <main className="relative mx-auto max-w-content px-5 pb-24 pt-28 sm:px-6 sm:pt-32">
       <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <Eyebrow tone="revealed">Live · Stellar testnet</Eyebrow>
+          <Eyebrow tone="revealed">On-chain demo</Eyebrow>
           <h1 className="mt-3 text-h2">Frontrunner showdown</h1>
           <p className="mt-3 max-w-xl text-text-dim">
             One bot, two markets — an institutional tUSTB/USDC block trade. On the left the order is visible and gets
@@ -73,9 +74,8 @@ export default function Demo() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Pill tone="live">testnet</Pill>
           <Button size="lg" variant={done ? "ghost" : "primary"} onClick={run} disabled={running}>
-            {running ? "running…" : done ? "↻ Run again" : "▶ Run live demo"}
+            {running ? "running…" : done ? "↻ Run again" : "▶ Run demo"}
           </Button>
         </div>
       </div>
@@ -91,6 +91,8 @@ export default function Demo() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <JourneyStrip />
 
       <div className="mt-8 grid gap-5 lg:grid-cols-2">
         {/* LEFT — transparent AMM */}
@@ -130,8 +132,7 @@ export default function Demo() {
         <Panel
           tone={settled ? "revealed" : "sealed"}
           title="Stelvin"
-          badge="Live · testnet"
-          badgeLive
+          badge="Sealed batch"
           subtitle="The same bot reads the real on-chain ciphertext and runs tlock decrypt."
         >
           {!right.batchId && <Empty>Press run. The same bot will try to read a sealed order.</Empty>}
@@ -216,6 +217,18 @@ export default function Demo() {
                     <span>bob <b className="text-text">+{right.bobGainUsdc} USDC</b></span>
                     <span>matched <b className="text-text">{right.matched}</b></span>
                   </div>
+                  {right.feeQuote !== undefined && (
+                    <div className="mt-3 rounded-[var(--radius-sm)] border border-border bg-bg/50 px-3 py-2 text-xs">
+                      <div className="text-text-dim">
+                        💰 venue fee <b className="text-text">{right.feeQuote} USDC</b>
+                        <span className="text-text-muted"> ({right.feeBps} bps)</span> → protocol revenue
+                        <span className="text-revealed"> · real, on-chain</span>
+                      </div>
+                      <div className="mt-1 text-text-muted">
+                        + surplus capture (50% of price-improvement vs a transparent venue) — roadmap, reference-priced
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-3 inline-flex items-center gap-2 rounded-pill border border-revealed/40 bg-revealed/10 px-3 py-1 font-mono text-xs text-revealed">
                     frontrun attempts: {right.frontrunAttempts} — 0 successful
                   </div>
@@ -258,12 +271,44 @@ export default function Demo() {
   )
 }
 
+/* ─────────────────────── venue user journey ─────────────────────── */
+function JourneyStrip() {
+  const steps = [
+    { n: "1", label: "Get KYC'd", note: "allowlisted desk" },
+    { n: "2", label: "Deposit", note: "USDC / tUSTB" },
+    { n: "3", label: "Sealed order", note: "timelock to round R" },
+    { n: "4", label: "Clear at NAV", note: "one uniform price" },
+    { n: "5", label: "Withdraw", note: "realized balance" },
+  ]
+  return (
+    <div className="mt-6 rounded-[var(--radius)] border border-border bg-surface/40 p-4">
+      <div className="mb-3 font-mono text-[11px] uppercase tracking-widest text-text-muted">
+        How a desk uses the venue
+      </div>
+      <ol className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {steps.map((s, i) => (
+          <li key={s.n} className="flex flex-1 items-center gap-3">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-sealed/40 bg-sealed/10 font-mono text-xs text-sealed-300">
+              {s.n}
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-medium text-text">{s.label}</div>
+              <div className="text-xs text-text-muted">{s.note}</div>
+            </div>
+            {i < steps.length - 1 && <span className="ml-auto hidden text-text-muted sm:block">→</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 /* ─────────────────────── panel sub-components ─────────────────────── */
 function Panel({
-  tone, title, badge, subtitle, badgeLive, children,
+  tone, title, badge, subtitle, children,
 }: {
   tone: "sealed" | "revealed" | "attack"
-  title: string; badge: string; subtitle: string; badgeLive?: boolean
+  title: string; badge: string; subtitle: string
   children: ReactNode
 }) {
   const ring =
@@ -276,7 +321,7 @@ function Panel({
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-h3 font-semibold">{title}</h2>
-        {badgeLive ? <Pill tone="live">{badge}</Pill> : <Pill tone={tone === "attack" ? "neutral" : tone}>{badge}</Pill>}
+        <Pill tone={tone === "attack" ? "neutral" : tone}>{badge}</Pill>
       </div>
       <p className="mt-1.5 text-sm text-text-muted">{subtitle}</p>
       <div className="mt-2">{children}</div>

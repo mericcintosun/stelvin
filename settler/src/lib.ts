@@ -19,10 +19,15 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export type Order = { side: "Buy" | "Sell"; amount: number; limit_price: number }
 
 // RWA framing: the base asset is a tokenized US T-bill (tUSTB), quote is USDC.
-// RWA fair value ≈ NAV ≈ par ($1.00). Configurable; used only as a display-only
-// reference for "cleared at/near par" (never feeds settle — same discipline as
-// the Noether oracle below).
-export const RWA = { base: "tUSTB", quote: "USDC", nav: 1.0 }
+// RWA fair value ≈ NAV ≈ par ($1.00). `block` is the demo block-trade size, large
+// enough that the on-chain venue fee is non-trivially visible. `feeBps` = 2 bps,
+// matching CoW Protocol's volume fee for a stable/correlated pair (display-only
+// NAV reference; the fee itself is real & on-chain — ADR-018).
+export const RWA = { base: "tUSTB", quote: "USDC", nav: 1.0, block: 10_000, feeBps: 2 }
+
+export function getFees(asset: string): number {
+  return asInt(inv(E.GATE, "admin", `get_fees --asset ${asset}`))
+}
 
 export function loadEnv(): Record<string, string> {
   const env: Record<string, string> = {}

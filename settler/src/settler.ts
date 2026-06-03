@@ -7,7 +7,7 @@
 // Scope: core round-trip only; daemon/retry/idempotency deferred.
 
 import {
-  E, inv, asInt, sleep, CHAIN,
+  E, inv, asInt, sleep, CHAIN, RWA,
   relayLatestRound, relayGet, getBalance, getOrderCiphertext,
   encryptOrder, decryptHex, fetchSigma, sha256hex, type Order,
 } from "./lib.js"
@@ -15,11 +15,12 @@ import {
 async function main() {
   console.log("gate:", E.GATE, "| chain:", CHAIN)
 
-  // Permissioned (RWA/KYC) mode: allowlist the desks. Idempotent + admin-only.
-  console.log("\n[0] permissioned (KYC) mode + allowlist alice/bob")
+  // Permissioned (RWA/KYC) mode + venue fee. Idempotent + admin-only.
+  console.log("\n[0] permissioned (KYC) mode + allowlist alice/bob + venue fee")
   inv(E.GATE, "admin", `set_permissioned --enabled true`)
   inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
   inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
+  inv(E.GATE, "admin", `set_fee_bps --bps ${RWA.feeBps}`)
 
   const R = relayLatestRound() + 20
   console.log(`\n[1] create_batch(R=${R})`)
@@ -27,8 +28,8 @@ async function main() {
   console.log("    batch_id =", batchId)
 
   // tUSTB/USDC block trade near par ($1.00 NAV): buy 1.001, sell 1.000 → P*=1.000.
-  const aliceOrder: Order = { side: "Buy", amount: 100, limit_price: 10_010_000 }
-  const bobOrder: Order = { side: "Sell", amount: 100, limit_price: 10_000_000 }
+  const aliceOrder: Order = { side: "Buy", amount: RWA.block, limit_price: 10_010_000 }
+  const bobOrder: Order = { side: "Sell", amount: RWA.block, limit_price: 10_000_000 }
 
   console.log("\n[2] encrypt to R + submit_order (real tlock ciphertext)")
   const aHex = await encryptOrder(R, aliceOrder)
@@ -70,10 +71,11 @@ async function main() {
   ])
   inv(E.GATE, "admin", `settle --batch_id ${batchId} --sigma_r ${sigma} --revealed '${revealed}'`)
   console.log("    clearing:", inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)?.[0])
-  // P*=1.000 (par): alice +100 tUSTB, bob +100 USDC.
-  if (getBalance(E.ALICE, E.X_SAC) - aX0 !== 100 || getBalance(E.BOB, E.USDC_SAC) - bU0 !== 100)
+  // P*=1.000 (par): alice +block tUSTB; bob +block net of the venue fee (feeBps).
+  const expBob = Math.floor((RWA.block * (10_000 - RWA.feeBps)) / 10_000)
+  if (getBalance(E.ALICE, E.X_SAC) - aX0 !== RWA.block || getBalance(E.BOB, E.USDC_SAC) - bU0 !== expBob)
     throw new Error("unexpected settlement deltas")
-  console.log("\n✅ M3 PASSED — real tlock ciphertext settled at par; unreadable pre-R, decrypted & matched post-R")
+  console.log(`\n✅ M3 PASSED — real tlock settled at par; alice +${RWA.block} ${RWA.base}, bob +${expBob} USDC (${RWA.feeBps} bps fee), unreadable pre-R`)
 }
 
 main().catch((e) => { console.error("❌", e); process.exit(1) })

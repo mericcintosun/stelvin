@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Logo } from "./Logo"
-import { Button, Pill } from "./primitives"
+import { Button } from "./primitives"
 import { navigate, type Route } from "../lib/router"
 import { LINKS } from "../data/content"
 import { cn } from "../lib/cn"
@@ -51,9 +51,6 @@ export function Nav({ route }: { route: Route }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hidden sm:inline-flex">
-            <Pill tone="live">Live on testnet</Pill>
-          </span>
           <span className="hidden sm:inline-flex">
             <Button size="md" onClick={() => navigate("/demo")}>
               {route === "/demo" ? "↻ Re-run" : "Live demo"}

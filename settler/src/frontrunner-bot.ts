@@ -15,7 +15,7 @@
 
 import {
   E, inv, asInt, sleep, RWA,
-  relayLatestRound, relayGet, getBalance, getOrderCiphertext,
+  relayLatestRound, relayGet, getBalance, getOrderCiphertext, getFees,
   encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
 
@@ -65,7 +65,8 @@ async function stelvinSealedBatch() {
     inv(E.GATE, "admin", `set_permissioned --enabled true`)
     inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
     inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
-    console.log(`permissioned (KYC) mode ON · ${RWA.base}/USDC · alice + bob allowlisted`)
+    inv(E.GATE, "admin", `set_fee_bps --bps ${RWA.feeBps}`)
+    console.log(`permissioned (KYC) mode ON · ${RWA.base}/USDC · alice + bob allowlisted · venue fee ${RWA.feeBps} bps`)
   } catch {
     console.log(`(gate not permissioned — legacy deploy; continuing open)`)
   }
@@ -78,8 +79,8 @@ async function stelvinSealedBatch() {
 
   // tUSTB/USDC block trade priced near par ($1.00 NAV). Prices are FIXED (not
   // oracle-derived) — NAV and the Noether oracle stay display-only references.
-  const alice: Order = { side: "Buy", amount: 100, limit_price: 10_010_000 }  // 1.001
-  const bob: Order = { side: "Sell", amount: 100, limit_price: 10_000_000 }   // 1.000
+  const alice: Order = { side: "Buy", amount: RWA.block, limit_price: 10_010_000 }  // 1.001
+  const bob: Order = { side: "Sell", amount: RWA.block, limit_price: 10_000_000 }   // 1.000
   const aHex = await encryptOrder(R, alice)
   const bHex = await encryptOrder(R, bob)
   const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))
@@ -126,6 +127,7 @@ async function stelvinSealedBatch() {
   if (sha256hex(sigma) !== committed) throw new Error("sigma encoding mismatch")
 
   const aX0 = getBalance(E.ALICE, E.X_SAC), bU0 = getBalance(E.BOB, E.USDC_SAC)
+  const feesBefore = getFees(E.USDC_SAC)
   const revealed = JSON.stringify([
     { order_id: aoid, side: aDec.side, amount: String(aDec.amount), limit_price: String(aDec.limit_price) },
     { order_id: boid, side: bDec.side, amount: String(bDec.amount), limit_price: String(bDec.limit_price) },
@@ -133,12 +135,14 @@ async function stelvinSealedBatch() {
   inv(E.GATE, "admin", `settle --batch_id ${batchId} --sigma_r ${sigma} --revealed '${revealed}'`)
   const clearing = JSON.parse(inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)![0])
   const aX1 = getBalance(E.ALICE, E.X_SAC), bU1 = getBalance(E.BOB, E.USDC_SAC)
+  const feeQuote = getFees(E.USDC_SAC) - feesBefore // real on-chain venue fee
 
   const px = Number(clearing.price) / 1e7
   const navDev = (Math.abs(px - RWA.nav) / RWA.nav) * 100
   console.log(`   settled on-chain at a SINGLE uniform price P* = $${px.toFixed(3)} ${RWA.base}/USDC`)
   console.log(`   alice +${aX1 - aX0} ${RWA.base} · bob +${bU1 - bU0} USDC · everyone filled at the same price`)
   console.log(`   \x1b[32mcleared within ${navDev.toFixed(2)}% of NAV ($${RWA.nav.toFixed(2)} par) — fair, zero MEV\x1b[0m`)
+  console.log(`   \x1b[36mvenue fee: ${feeQuote} USDC (${RWA.feeBps} bps) → protocol revenue (real, on-chain)\x1b[0m`)
 
   // Ecosystem composition — Noether SEP-40 oracle live read (display-only, non-blocking).
   const fv = readOracleFairValue("XLM")
