@@ -49,13 +49,15 @@ demo in [`settler/`](./settler).
 
 - ✅ **M1 — Contract.** `deposit_funds`/`withdraw`, `create_batch`, `submit_order`,
   `lock_batch`, `settle` + on-chain matching, reveal dedup, one-order-per-trader
-  guard, lifecycle events, **backward-compatible permissioned KYC allowlist** (RWA).
-  **17/17 unit tests** (conservation + no-revert + dedup + KYC gate). `wasm32v1-none`.
+  guard, lifecycle events, **backward-compatible permissioned KYC allowlist** (RWA),
+  **conservation-safe protocol fee** (`fee_bps`). **21/21 unit tests** (conservation +
+  no-revert + dedup + KYC gate + fee). `wasm32v1-none`.
 - ✅ **RWA pivot.** Asset-agnostic contract → demo trades a tokenized US T-bill
   (tUSTB) vs USDC near par; permissioned (KYC) mode allowlists desks and rejects
-  un-KYC'd addresses on-chain. Positioned as an **on-chain dark pool for tokenized
-  RWAs & institutional flows**. See [`SUBMISSION.md`](./SUBMISSION.md) for the
-  real-world use cases + market & business model (with sources).
+  un-KYC'd addresses on-chain; a **2 bps venue fee** accrues on-chain (admin-
+  withdrawable). Positioned as an **on-chain dark pool for tokenized RWAs &
+  institutional flows**. See [`SUBMISSION.md`](./SUBMISSION.md) for the real-world
+  use cases + market & business model (with sources).
 - ✅ **M2 — Testnet.** Deployed against the live Drand-Relay; one-command e2e smoke
   test (`scripts/deploy_and_smoke.sh`). Sigma encoding (`sha256(48-byte compressed
   sigma) == relay.get(R)`) CLI-verified.
@@ -70,7 +72,7 @@ demo in [`settler/`](./settler).
 ## Run & verify
 
 ```sh
-cargo test -p batch-gate                  # 17/17 contract tests
+cargo test -p batch-gate                  # 21/21 contract tests
 bash scripts/deploy_and_smoke.sh          # deploy + end-to-end on testnet (one command)
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```

@@ -20,8 +20,9 @@ A single frontrunner bot, run against two markets — an institutional **tUSTB/U
   bot* pulls the actual on-chain order and runs real `tlock` decrypt → **every
   attempt "It's too early to decrypt … decryptable at round R"** → the drand beacon
   publishes round R → the batch settles on-chain at **one uniform price `P*=1.00`
-  (at par/NAV)**, both sides fill equally (alice +100 tUSTB, bob +100 USDC) →
-  **frontrun attempts: 0 successful.**
+  (at par/NAV)** — a 10,000-unit block fills equally (alice +10,000 tUSTB, bob
+  +9,998 USDC net of a **2 bps venue fee**; 2 USDC accrues to the protocol and is
+  withdrawn) → **frontrun attempts: 0 successful.**
 
 Run it yourself in ~90s against live testnet: `cd settler && npm run demo`.
 A recorded run is in [`demo/sample-run.txt`](./demo/sample-run.txt).
@@ -118,8 +119,10 @@ Stellar-native market is early.
 | **SAM — Stellar today (honest)** | **~$161M TVL** (May 2026), ~7× YoY | RWA/institutional-driven; institutional wallets +51% in 2025. Small but fast-growing — and the segment that cares most about intent privacy. |
 | **SOM — near-term wedge** | RWA / institutional block trades | Become Stellar's fair-execution venue as Soroban DeFi scales. |
 
-**Revenue model** (mirrors CoW): (1) trading fee on matched volume (a few bps);
-(2) surplus capture — share of the price improvement vs a transparent venue;
+**Revenue model** (mirrors CoW): (1) **trading fee on matched volume — already live
+on-chain** (`fee_bps`, a CoW-matched 2 bps in the demo; conservation-safe, taken
+from the quote leg, admin-withdrawable — ADR-018); (2) surplus capture — share of
+the price improvement vs a transparent venue (roadmap, reference-priced);
 (3) institutional/B2B venue access (block-trade desk onboarding); (4) white-label —
 license the sealed-batch engine to anchors & RWA platforms; (5) protocol token
 (fee capture / governance).
@@ -205,17 +208,17 @@ Deployed on Stellar **testnet**; judges can inspect on
 
 | Item | Value |
 |---|---|
-| BatchGate (permissioned RWA) | `CBUH3NCNUXCLIBSHNAH2NJFCXHMGUWCRT2QTHDCLSH55MLPOCSDF44DP` |
+| BatchGate (permissioned RWA) | `CCIX73WH4G6K3BGIUJ3TNOVCIRD6WFYXQFTINJIQCNVC2BYGYSXM2PLY` |
 | Drand-Relay (oracle, called) | `CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM` |
-| Test tUSTB / USDC SACs | `CB6QG4ZRWVNKCRGRSWCCY7FJEEF6XK7YYLNLG7NGH27SDEWEZ5IN4HQE` / `CCCECFJIXPX77KIR5ZBPOBV65LBCMN7SF52WAZD46M56AS5DKJCL5ZUF` |
-| Contract | 17/17 unit tests, wasm 26,099 bytes, `wasm32v1-none` |
+| Test tUSTB / USDC SACs | `CBBEJ6DG2UAH4ZTR7LEYPUVJ6WRXOLH7BNCKYYUVZM4TO2AW3IDZ3EZK` / `CDPUH33N4ZR72YVIXPOHVKEP55T3SONR3T3JS4W5JNSXTOPR5FSZIEE6` |
+| Contract | 21/21 unit tests, wasm 29,208 bytes, `wasm32v1-none` |
 | KYC gate (live) | permissioned mode on; un-KYC'd address rejected on-chain (`PermissionedSet`/`KycSet` events) |
-| Live RWA settle | round `29212848`, `P*=1.00` (par), 100 tUSTB ↔ 100 USDC, `BatchSettled` emitted |
+| Live RWA settle | round `29214673`, `P*=1.00` (par), 10,000 tUSTB ↔ 9,998 USDC, **2 bps fee accrued + withdrawn** |
 | Sigma encoding | CLI-verified (round `29196000`): `sha256(48B compressed sig)==relay.get(R)` |
 
 **Test it:**
 ```sh
-cargo test -p batch-gate                 # 17/17 contract tests
+cargo test -p batch-gate                 # 21/21 contract tests
 bash scripts/deploy_and_smoke.sh         # one command: deploy + e2e on testnet
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```
@@ -226,7 +229,7 @@ cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
   matching, conservation-safe + revert-proof settlement, drand timing/key gate).
 - ✅ **RWA pivot** (ADR-017): asset-agnostic core → tUSTB/USDC near par; backward-
   compatible permissioned **KYC allowlist** (un-KYC'd address rejected on-chain).
-  17/17 tests; positioned as an on-chain dark pool for RWA / institutional flows.
+  21/21 tests; positioned as an on-chain dark pool for RWA / institutional flows.
 - ✅ **M2** testnet deploy + one-command end-to-end smoke test.
 - ✅ **M3** real `tlock` settler (encrypt → submit → unreadable-pre-`R` → decrypt → settle).
 - ✅ **M5** frontrunner-bot demo (transparent-AMM sandwich vs sealed batch).

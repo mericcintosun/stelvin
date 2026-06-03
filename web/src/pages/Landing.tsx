@@ -56,7 +56,6 @@ function Hero() {
             className="mb-6 flex flex-wrap items-center gap-3"
           >
             <Pill tone="sealed">Tokenized RWA · Stellar</Pill>
-            <Pill tone="live">Live on testnet</Pill>
             <Pill tone="neutral">Main + Privacy</Pill>
           </motion.div>
 
@@ -103,7 +102,7 @@ function Hero() {
             transition={{ duration: 0.6, delay: 0.8 }}
             className="mt-7 font-mono text-xs text-text-muted"
           >
-            ~90s, live on Stellar testnet · {CRYPTO.beacon} · {CRYPTO.scheme}
+            ~90s end-to-end · {CRYPTO.beacon} · {CRYPTO.scheme}
           </motion.p>
         </div>
 
@@ -239,7 +238,7 @@ function LiveProof() {
                 <Button size="lg" variant="revealed" onClick={() => navigate("/demo")}>
                   Watch the live demo <span aria-hidden>→</span>
                 </Button>
-                <Pill tone="live">~90s on testnet</Pill>
+                <Pill tone="neutral">~90s end-to-end</Pill>
               </div>
             </div>
             <div className="hidden md:block">
@@ -560,6 +559,8 @@ function Market() {
               <h3 className="text-h3 font-semibold">Revenue model</h3>
               <p className="mt-2 text-sm text-text-muted">
                 Proven by CoW Protocol — the same primitive — at ~$15.6M/yr protocol revenue.
+                Stelvin's trading fee is <span className="text-revealed">already live on-chain</span> (2 bps,
+                conservation-safe, admin-withdrawable).
               </p>
             </div>
             <ul className="space-y-2.5">

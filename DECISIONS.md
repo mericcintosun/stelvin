@@ -309,7 +309,8 @@ allowlist**, because RWA tokens are permissioned (held only by vetted addresses)
 - `deposit_funds` / `submit_order` call `require_kyc`, which is a **no-op while
   permissioned is off**. So the existing 12 tests and the open demo path behave
   *identically*; 5 new tests cover the gate (allowlisted passes, un-KYC'd deposit
-  and submit are rejected, revocation re-blocks, default-off is open). 17/17 green.
+  and submit are rejected, revocation re-blocks, default-off is open). 17/17 at this
+  stage (21/21 after ADR-018's fee tests).
 **Why not auditor selective disclosure.** Tempting for "compliance," but it does
 **not** fit Stelvin's timelock: privacy here is *temporal* (hidden from everyone
 until R, then public to everyone) — there is no "hide from the public, show an
@@ -326,6 +327,32 @@ primitive) ~$93.5M mcap / ~$15.6M/yr revenue evidences a ~$100M-scale ceiling;
 Stellar-native SAM is small today (~$161M TVL) but fast-growing in exactly this
 segment. No invented valuation.
 
+### ADR-018 — Protocol fee (conservation-safe), surplus capture as roadmap
+**Decision.** Add an admin-configurable **protocol fee in basis points** (`set_fee_bps`,
+default 0, capped at `MAX_FEE_BPS = 1000`). The fee is taken **only from the quote
+leg** at settle and credited to an internal, admin-withdrawable ledger
+(`Fees(asset)` + `withdraw_fees`). It turns the business model from a claim into a
+working on-chain mechanism without touching the matching/clearing logic.
+**Conservation (the critical constraint).** A fee is value *redistribution*, not
+creation — the "nothing minted/burned" invariant (ADR-010) must hold. Construction:
+buyers still pay `⌈base·P*/SCALE⌉`; sellers receive `⌊base·P*/SCALE⌋ · (1 −
+fee_bps/10000)` (floored, so rounding favors the protocol, never pushes a seller or
+the pool negative); the **protocol fee is the residual** `Σbuy_quote −
+Σseller_quote`. Because `Σ⌈·⌉ ≥ Σ⌊·⌋ ≥ Σnet`, the residual is always ≥ 0, and by
+definition `Σbuy_quote == Σseller_quote + protocol_fee` — quote conserves exactly,
+base is untouched. With `fee_bps == 0` the residual is just the prior rounding dust,
+so the original 12 + ADR-017's tests and the open demo behave identically. Covered by
+`test_fee_conserves_accrues_and_withdraws`, `test_set_fee_bps_cap`,
+`test_withdraw_fees_over_balance`, `test_fee_default_zero` (21/21 total).
+**Demo value.** The demo runs a block-size trade (10,000 tUSTB) at a CoW-matched
+**2 bps** fee, so the accrued fee is real and visible on-chain; admin
+`withdraw_fees` realizes it as revenue.
+**Why surplus capture is roadmap, not v1.** CoW's main revenue is *surplus capture*
+(≈50% of price improvement vs a reference, capped ~0.98%). That needs a trusted
+reference price per trade — extra oracle surface and trust. v1 ships the simple,
+fully-conservation-safe `fee_bps`; surplus capture is display-only in the demo and
+on the roadmap. We don't claim it as implemented.
+
 ## 5. Contract reference (BatchGate + Escrow)
 
 **Storage (`DataKey`)**
@@ -338,6 +365,8 @@ segment. No invented valuation.
 - `Submitted(u32, Address)` → `bool` — one-order-per-trader-per-batch guard
 - `Permissioned` → `bool` (default false) — RWA/KYC gate toggle (ADR-017)
 - `Allowed(Address)` → `bool` — KYC allowlist for permissioned mode (ADR-017)
+- `FeeBps` → `u32` (default 0) — protocol fee in basis points (ADR-018)
+- `Fees(Address)` → `i128` — accrued, admin-withdrawable protocol fees per asset (ADR-018)
 
 **Functions**
 | fn | auth | purpose |
@@ -347,11 +376,13 @@ segment. No invented valuation.
 | `withdraw(trader, asset, amount)` | trader | withdraw free balance (SAC push) |
 | `set_permissioned(enabled)` | admin | toggle RWA/KYC mode (default off) — ADR-017 |
 | `set_kyc(trader, allowed)` | admin | KYC allowlist add/remove (issuer/compliance role) — ADR-017 |
+| `set_fee_bps(bps)` | admin | set protocol fee in bps (default 0, cap 1000) — ADR-018 |
+| `withdraw_fees(to, asset, amount)` | admin | withdraw accrued protocol fees — ADR-018 |
 | `create_batch(reveal_round) -> u32` | admin | open a batch for round R |
 | `submit_order(trader, batch_id, ciphertext) -> u64` | trader | sealed order; requires funded balance; one per trader per batch; KYC-gated when permissioned |
 | `lock_batch(batch_id)` | permissionless | freeze once R available |
 | `settle(batch_id, sigma_r, revealed[])` | permissionless | (a)+(b) gate, (e) match, (f) settle |
-| `get_batch / get_order / get_clearing / get_clearing_price / get_balance / get_permissioned / is_kyc` | view | reads |
+| `get_batch / get_order / get_clearing / get_clearing_price / get_balance / get_permissioned / is_kyc / get_fee_bps / get_fees` | view | reads |
 
 **`settle` steps (mapping to the design)**
 - **(a)+(b)** `committed = relay.get(R)`; `assert sha256(sigma_r) == committed`
@@ -366,6 +397,7 @@ segment. No invented valuation.
 `OrderSubmitted(batch_id, order_id, trader)`,
 `BatchSettled(batch_id, price, matched_volume)` — all topic-indexed by `batch_id`.
 Plus (ADR-017): `PermissionedSet(enabled)`, `KycSet(trader, allowed)`.
+Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
 
 ---
 
@@ -405,8 +437,9 @@ Plus (ADR-017): `PermissionedSet(enabled)`, `KycSet(trader, allowed)`.
 ## 7. MVP scope
 
 **In:**
-- BatchGate + Escrow Soroban contract — **done**, 17/17 unit tests, wasm builds
-  (26,099 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate (ADR-017).
+- BatchGate + Escrow Soroban contract — **done**, 21/21 unit tests, wasm builds
+  (29,208 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate
+  (ADR-017) and the conservation-safe protocol fee (ADR-018).
 - Dual-asset (RWA `tUSTB`/USDC in the demo), standing balances, sealed orders, on-chain uniform-price
   matching, conservation-safe + revert-proof settlement, drand timing+key gate,
   reveal dedup, lifecycle events.
@@ -436,7 +469,7 @@ Plus (ADR-017): `PermissionedSet(enabled)`, `KycSet(trader, allowed)`.
   `create_batch`/`submit_order` (balance guard), `lock_batch`, `settle` +
   `match_and_settle` (global feasibility scalar, floor-then-trim), reveal dedup,
   lifecycle events, one-order-per-trader guard, RWA/KYC allowlist gate (ADR-017).
-  17 tests incl. conservation + no-revert + dedup + per-trader + KYC; wasm release build green.
+  21 tests incl. conservation + no-revert + dedup + per-trader + KYC + protocol fee; wasm release build green.
 - **M2 — Deploy & wire (done).** Two test SACs (X, USDC) + BatchGate deployed to
   testnet against the live relay; full end-to-end CLI smoke-test **passed and is
   reproducible** via `scripts/deploy_and_smoke.sh` (one command:

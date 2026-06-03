@@ -12,7 +12,7 @@
 import express from "express"
 import {
   E, inv, asInt, sleep, RWA,
-  relayLatestRound, relayGet, getBalance, getOrderCiphertext,
+  relayLatestRound, relayGet, getBalance, getOrderCiphertext, getFees,
   encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
 
@@ -55,7 +55,8 @@ app.get("/api/demo", async (req, res) => {
       inv(E.GATE, "admin", `set_permissioned --enabled true`)
       inv(E.GATE, "admin", `set_kyc --trader ${E.ALICE} --allowed true`)
       inv(E.GATE, "admin", `set_kyc --trader ${E.BOB} --allowed true`)
-      emit("kyc", { permissioned: true, base: RWA.base, quote: RWA.quote })
+      inv(E.GATE, "admin", `set_fee_bps --bps ${RWA.feeBps}`)
+      emit("kyc", { permissioned: true, base: RWA.base, quote: RWA.quote, feeBps: RWA.feeBps })
     } catch (e) {
       emit("kyc", { permissioned: false, note: "gate not permissioned (legacy deploy)" })
     }
@@ -66,8 +67,8 @@ app.get("/api/demo", async (req, res) => {
 
     // tUSTB/USDC block trade, priced near par ($1.00 = NAV). Fixed prices — NAV
     // and the Noether oracle stay display-only references, never feed settle.
-    const alice: Order = { side: "Buy", amount: 100, limit_price: 10_010_000 }  // 1.001
-    const bob: Order = { side: "Sell", amount: 100, limit_price: 10_000_000 }   // 1.000
+    const alice: Order = { side: "Buy", amount: RWA.block, limit_price: 10_010_000 }  // 1.001
+    const bob: Order = { side: "Sell", amount: RWA.block, limit_price: 10_000_000 }   // 1.000
     const aHex = await encryptOrder(R, alice)
     const bHex = await encryptOrder(R, bob)
     const aoid = asInt(inv(E.GATE, "alice", `submit_order --trader ${E.ALICE} --batch_id ${batchId} --ciphertext ${aHex}`))
@@ -111,6 +112,7 @@ app.get("/api/demo", async (req, res) => {
     emit("decrypted", { alice: aDec, bob: bDec })
 
     const aX0 = getBalance(E.ALICE, E.X_SAC), bU0 = getBalance(E.BOB, E.USDC_SAC)
+    const feesBefore = getFees(E.USDC_SAC)
     const revealed = JSON.stringify([
       { order_id: aoid, side: aDec.side, amount: String(aDec.amount), limit_price: String(aDec.limit_price) },
       { order_id: boid, side: bDec.side, amount: String(bDec.amount), limit_price: String(bDec.limit_price) },
@@ -119,14 +121,18 @@ app.get("/api/demo", async (req, res) => {
     const clearing = JSON.parse(inv(E.GATE, "admin", `get_clearing --batch_id ${batchId}`).match(/\{.*\}/s)![0])
     const px = Number(clearing.price) / 1e7
     const navDeviationPct = +((Math.abs(px - RWA.nav) / RWA.nav) * 100).toFixed(2)
+    const matched = Number(clearing.matched_volume)
+    const feeQuote = getFees(E.USDC_SAC) - feesBefore // real, on-chain accrued venue fee
     emit("settled", {
       price: px,
       base: RWA.base,
       nav: RWA.nav,
       navDeviationPct,
-      matched: Number(clearing.matched_volume),
+      matched,
       aliceGainBase: getBalance(E.ALICE, E.X_SAC) - aX0,
       bobGainUsdc: getBalance(E.BOB, E.USDC_SAC) - bU0,
+      feeQuote,
+      feeBps: RWA.feeBps,
       frontrunAttempts: attempts,
     })
 

@@ -58,11 +58,12 @@ GATE=$(stellar contract deploy --wasm "$WASM" --source admin --network $NET -- \
   --admin $ADMIN --asset_base $X_SAC --asset_quote $USDC_SAC --relay $RELAY 2>/dev/null | addr)
 echo "GATE=$GATE"
 
-say "Permissioned RWA mode: enable + KYC-allowlist alice & bob"
+say "Permissioned RWA mode: enable + KYC-allowlist alice & bob + venue fee (2 bps)"
 stellar contract invoke --id $GATE --source admin --network $NET -- set_permissioned --enabled true >/dev/null
 stellar contract invoke --id $GATE --source admin --network $NET -- set_kyc --trader $ALICE --allowed true >/dev/null
 stellar contract invoke --id $GATE --source admin --network $NET -- set_kyc --trader $BOB   --allowed true >/dev/null
-echo "permissioned=true; alice & bob allowlisted (mallory deliberately left off)"
+stellar contract invoke --id $GATE --source admin --network $NET -- set_fee_bps --bps 2 >/dev/null
+echo "permissioned=true; alice & bob allowlisted (mallory left off); fee=2 bps"
 
 say "Deposit (alice 500k USDC, bob 500k tUSTB)"
 stellar contract invoke --id $GATE --source alice --network $NET -- deposit_funds --trader $ALICE --asset $USDC_SAC --amount 500000 >/dev/null
@@ -100,16 +101,21 @@ SIG=$(curl -s --max-time 15 "https://api.drand.sh/$CHAIN/public/$R" | sed -E 's/
 COMPUTED=$(printf '%s' "$SIG" | xxd -r -p | shasum -a 256 | awk '{print $1}')
 [ "$COMPUTED" = "$V" ] && echo "sha256(sigma)==relay.get(R) ✓" || { echo "ENCODING MISMATCH"; exit 1; }
 
-say "Settle (uniform price computed on-chain; tUSTB/USDC near par)"
+say "Settle (uniform price computed on-chain; tUSTB/USDC block near par, 2 bps fee)"
 stellar contract invoke --id $GATE --source admin --network $NET -- \
   settle --batch_id $BATCH --sigma_r $SIG \
-  --revealed "[{\"order_id\":$AOID,\"side\":\"Buy\",\"amount\":\"100\",\"limit_price\":\"10010000\"},{\"order_id\":$BOID,\"side\":\"Sell\",\"amount\":\"100\",\"limit_price\":\"10000000\"}]" >/dev/null
+  --revealed "[{\"order_id\":$AOID,\"side\":\"Buy\",\"amount\":\"10000\",\"limit_price\":\"10010000\"},{\"order_id\":$BOID,\"side\":\"Sell\",\"amount\":\"10000\",\"limit_price\":\"10000000\"}]" >/dev/null
 
-say "Verify standing balances + clearing"
+say "Verify standing balances + clearing + accrued venue fee"
 bal(){ stellar contract invoke --id $GATE --source admin --network $NET -- get_balance --trader "$1" --asset "$2" 2>/dev/null | grep -oE '"[0-9]+"' | tr -d '"' | tail -1; }
 echo "alice  tUSTB=$(bal $ALICE $X_SAC)  USDC=$(bal $ALICE $USDC_SAC)"
-echo "bob    tUSTB=$(bal $BOB $X_SAC)  USDC=$(bal $BOB $USDC_SAC)"
+echo "bob    tUSTB=$(bal $BOB $X_SAC)  USDC=$(bal $BOB $USDC_SAC)   (net of 2 bps fee)"
 stellar contract invoke --id $GATE --source admin --network $NET -- get_clearing --batch_id $BATCH 2>/dev/null | grep -oE '\{.*\}'
+FEES=$(stellar contract invoke --id $GATE --source admin --network $NET -- get_fees --asset $USDC_SAC 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+echo "protocol fees accrued (USDC) = $FEES"
+
+say "Withdraw accrued protocol fees to admin (revenue)"
+stellar contract invoke --id $GATE --source admin --network $NET -- withdraw_fees --to $ADMIN --asset $USDC_SAC --amount "$FEES" >/dev/null && echo "withdrew $FEES USDC; fees now = $(stellar contract invoke --id $GATE --source admin --network $NET -- get_fees --asset $USDC_SAC 2>/dev/null | grep -oE '[0-9]+' | tail -1)"
 
 say "Save addresses -> $ENVF"
 { echo "ADMIN=$ADMIN"; echo "ALICE=$ALICE"; echo "BOB=$BOB"; echo "MALLORY=$MALLORY";

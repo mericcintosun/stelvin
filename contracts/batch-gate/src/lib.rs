@@ -58,6 +58,11 @@ const MAX_ORDERS: u32 = 16;
 /// Scale for the global feasibility scalar `r ∈ [0, 1]`.
 const FEAS_SCALE: i128 = 1_000_000_000;
 
+/// Basis-points denominator and the hard cap on the configurable protocol fee
+/// (ADR-018). 1000 bps = 10% — a guardrail; realistic venue fees are a few bps.
+const BPS_DENOM: i128 = 10_000;
+const MAX_FEE_BPS: u32 = 1_000;
+
 const MIN_TTL: u32 = 17_280;
 const EXTEND_TO: u32 = 518_400;
 
@@ -182,6 +187,22 @@ pub struct KycSet {
     pub allowed: bool,
 }
 
+/// Protocol fee config + accrual (ADR-018). Fee is value redistribution, taken
+/// from the quote leg at settle and credited to an admin-withdrawable ledger —
+/// conservation is preserved. Emitting keeps the venue's economics auditable.
+#[contractevent]
+pub struct FeeBpsSet {
+    pub bps: u32,
+}
+
+#[contractevent]
+pub struct FeesAccrued {
+    #[topic]
+    pub batch_id: u32,
+    pub asset: Address,
+    pub amount: i128,
+}
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -203,6 +224,10 @@ pub enum DataKey {
     Permissioned,
     /// KYC allowlist for permissioned mode: (trader) -> allowed.
     Allowed(Address),
+    /// Protocol fee in basis points (ADR-018). Unset = 0 = no fee.
+    FeeBps,
+    /// Accrued protocol fees per asset (admin-withdrawable): (asset) -> amount.
+    Fees(Address),
 }
 
 /// Internal matching record (not persisted).
@@ -271,6 +296,27 @@ fn require_kyc(env: &Env, trader: &Address) {
             "trader not on the KYC allowlist (permissioned mode)"
         );
     }
+}
+
+/// Protocol fee in basis points (ADR-018). Default 0 → no fee.
+fn fee_bps(env: &Env) -> i128 {
+    let bps: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0);
+    bps as i128
+}
+
+fn fees_of(env: &Env, asset: &Address) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Fees(asset.clone()))
+        .unwrap_or(0)
+}
+
+fn set_fees(env: &Env, asset: &Address, amount: i128) {
+    let key = DataKey::Fees(asset.clone());
+    env.storage().persistent().set(&key, &amount);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, MIN_TTL, EXTEND_TO);
 }
 
 fn load_batch(env: &Env, batch_id: u32) -> Batch {
@@ -415,6 +461,29 @@ impl BatchGate {
             .persistent()
             .extend_ttl(&key, MIN_TTL, EXTEND_TO);
         KycSet { trader, allowed }.publish(&env);
+    }
+
+    /// Set the protocol fee in basis points (ADR-018). Admin-only; capped at
+    /// `MAX_FEE_BPS`. Default 0 → no fee (existing behavior). The fee is taken
+    /// from the quote leg at settle, never from base, so conservation holds.
+    pub fn set_fee_bps(env: Env, bps: u32) {
+        load_admin(&env).require_auth();
+        assert!(bps <= MAX_FEE_BPS, "fee_bps exceeds cap");
+        env.storage().instance().set(&DataKey::FeeBps, &bps);
+        env.storage().instance().extend_ttl(MIN_TTL, EXTEND_TO);
+        FeeBpsSet { bps }.publish(&env);
+    }
+
+    /// Withdraw accrued protocol fees for an asset to `to`. Admin-only; capped at
+    /// the accrued balance, so it can never touch trader funds.
+    pub fn withdraw_fees(env: Env, to: Address, asset: Address, amount: i128) {
+        load_admin(&env).require_auth();
+        assert!(amount > 0, "amount must be positive");
+        let cur = fees_of(&env, &asset);
+        assert!(cur >= amount, "insufficient accrued fees");
+        set_fees(&env, &asset, cur - amount);
+        let tok = token::TokenClient::new(&env, &asset);
+        tok.transfer(&env.current_contract_address(), &to, &amount);
     }
 
     // -----------------------------------------------------------------------
@@ -630,6 +699,16 @@ impl BatchGate {
     pub fn is_kyc(env: Env, trader: Address) -> bool {
         is_allowed(&env, &trader)
     }
+
+    /// Current protocol fee in basis points.
+    pub fn get_fee_bps(env: Env) -> u32 {
+        env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
+    }
+
+    /// Accrued (un-withdrawn) protocol fees for an asset.
+    pub fn get_fees(env: Env, asset: Address) -> i128 {
+        fees_of(&env, &asset)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -800,8 +879,15 @@ impl BatchGate {
         trim_to(&mut buy_fills, buy_sum, traded);
         trim_to(&mut sell_fills, sell_sum, traded);
 
-        // (6) Apply. Quote leg: buyers pay ceil, sellers receive floor, so the
-        //     contract's quote pool can only retain dust — never go negative.
+        // (6) Apply. Quote leg: buyers pay ceil; sellers receive floor minus the
+        //     protocol fee (ADR-018). The fee is taken from the quote leg only and
+        //     credited to an internal fee ledger — it is value *redistribution*,
+        //     not creation, so the conservation invariant is preserved:
+        //     Σbuy_quote == Σseller_quote + protocol_fee  (base already conserves
+        //     exactly). With fee_bps == 0 this reproduces the prior behavior
+        //     (the residual is just the rounding dust).
+        let bps = fee_bps(env);
+        let mut buy_quote_total: i128 = 0;
         let n_buys = elig_buys.len();
         for i in 0..n_buys {
             let b = elig_buys.get(i).unwrap();
@@ -815,8 +901,10 @@ impl BatchGate {
             set_balance(env, &b.trader, &quote_asset, q - quote_pay);
             let bb = balance_of(env, &b.trader, &base_asset);
             set_balance(env, &b.trader, &base_asset, bb + base_fill);
+            buy_quote_total += quote_pay;
         }
 
+        let mut sell_quote_total: i128 = 0;
         let n_sells = elig_sells.len();
         for i in 0..n_sells {
             let s = elig_sells.get(i).unwrap();
@@ -824,12 +912,33 @@ impl BatchGate {
             if base_fill <= 0 {
                 continue;
             }
-            let quote_recv = base_fill * price / PRICE_SCALE; // floor
+            let gross = base_fill * price / PRICE_SCALE; // floor
+            // Net of the protocol fee, floored — the fee rounds in the protocol's
+            // favor, never the seller's, so net <= gross and the seller credit
+            // can never push the contract pool negative.
+            let quote_recv = gross * (BPS_DENOM - bps) / BPS_DENOM;
             let sb = balance_of(env, &s.trader, &base_asset);
             assert!(sb >= base_fill, "seller base underflow");
             set_balance(env, &s.trader, &base_asset, sb - base_fill);
             let sq = balance_of(env, &s.trader, &quote_asset);
             set_balance(env, &s.trader, &quote_asset, sq + quote_recv);
+            sell_quote_total += quote_recv;
+        }
+
+        // Protocol fee = quote residual (buyers paid − sellers received). Always
+        // >= 0 since Σceil >= Σfloor >= Σnet. Credited to the internal fee ledger
+        // (admin-withdrawable via `withdraw_fees`); it captures both the rounding
+        // dust and the bps fee and mints nothing.
+        let protocol_fee = buy_quote_total - sell_quote_total;
+        if protocol_fee > 0 {
+            let cur = fees_of(env, &quote_asset);
+            set_fees(env, &quote_asset, cur + protocol_fee);
+            FeesAccrued {
+                batch_id: batch.id,
+                asset: quote_asset.clone(),
+                amount: protocol_fee,
+            }
+            .publish(env);
         }
 
         (price, traded)

@@ -547,6 +547,79 @@ fn test_permissioned_blocks_unlisted_submit() {
     s.contract.submit_order(&mallory, &batch_id, &ct);
 }
 
+// ── Protocol fee (ADR-018) ──────────────────────────────────────────────────
+
+#[test]
+fn test_fee_default_zero() {
+    let s = setup();
+    assert_eq!(s.contract.get_fee_bps(), 0);
+    assert_eq!(s.contract.get_fees(&s.quote), 0);
+}
+
+/// A 2% fee is taken from the quote leg only: buyer pays full, seller receives
+/// net, the difference accrues to the protocol ledger, base conserves exactly,
+/// and the admin can withdraw the accrued fee (capped at the balance).
+#[test]
+fn test_fee_conserves_accrues_and_withdraws() {
+    let s = setup();
+    let env = &s.env;
+    let buyer = Address::generate(env);
+    let seller = Address::generate(env);
+    s.quote_admin.mint(&buyer, &1_000_000);
+    s.base_admin.mint(&seller, &1_000_000);
+    s.contract.deposit_funds(&buyer, &s.quote, &1_000_000);
+    s.contract.deposit_funds(&seller, &s.base, &1_000_000);
+
+    s.contract.set_fee_bps(&200u32); // 2%
+    assert_eq!(s.contract.get_fee_bps(), 200u32);
+
+    let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+    let batch_id = s.contract.create_batch(&reveal_round);
+    let ct = Bytes::from_slice(env, b"ct");
+    let bid = s.contract.submit_order(&buyer, &batch_id, &ct);
+    let sid = s.contract.submit_order(&seller, &batch_id, &ct);
+
+    // Price 1.0: buyer pays 100, seller net floor(100*0.98)=98, fee = 2.
+    let mut reveal: Vec<Revealed> = Vec::new(env);
+    reveal.push_back(revealed(env, bid, Side::Buy, 100, 10_000_000));
+    reveal.push_back(revealed(env, sid, Side::Sell, 100, 10_000_000));
+    let sigma = arm_relay(&s, reveal_round);
+    s.contract.settle(&batch_id, &sigma, &reveal);
+
+    assert_eq!(s.contract.get_balance(&buyer, &s.base), 100, "base conserved to buyer");
+    assert_eq!(s.contract.get_balance(&seller, &s.base), 1_000_000 - 100);
+    let buyer_quote_out = 1_000_000 - s.contract.get_balance(&buyer, &s.quote);
+    let seller_quote_in = s.contract.get_balance(&seller, &s.quote);
+    let fee = s.contract.get_fees(&s.quote);
+    assert_eq!(buyer_quote_out, 100);
+    assert_eq!(seller_quote_in, 98);
+    assert_eq!(fee, 2);
+    // Conservation: buyers paid == sellers received + protocol fee.
+    assert_eq!(buyer_quote_out, seller_quote_in + fee, "quote conserved incl. fee");
+
+    // Admin withdraws the accrued fee to a recipient (real SAC transfer).
+    let recipient = Address::generate(env);
+    s.contract.withdraw_fees(&recipient, &s.quote, &2);
+    assert_eq!(s.contract.get_fees(&s.quote), 0);
+    let q = token::TokenClient::new(env, &s.quote);
+    assert_eq!(q.balance(&recipient), 2, "fee tokens delivered");
+}
+
+#[test]
+#[should_panic(expected = "fee_bps exceeds cap")]
+fn test_set_fee_bps_cap() {
+    let s = setup();
+    s.contract.set_fee_bps(&2_000u32);
+}
+
+#[test]
+#[should_panic(expected = "insufficient accrued fees")]
+fn test_withdraw_fees_over_balance() {
+    let s = setup();
+    let r = Address::generate(&s.env);
+    s.contract.withdraw_fees(&r, &s.quote, &1); // nothing accrued yet
+}
+
 /// Revoking KYC re-blocks a trader (allowlist is mutable by the compliance role).
 #[test]
 #[should_panic(expected = "KYC allowlist")]
