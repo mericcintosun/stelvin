@@ -4,6 +4,7 @@ import { Nav } from "./components/Nav"
 import { Footer } from "./components/Footer"
 import Landing from "./pages/Landing"
 import Demo from "./pages/Demo"
+import Docs from "./pages/Docs"
 import { useRoute } from "./lib/router"
 
 export default function App() {
@@ -13,7 +14,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
       <Starfield />
       <Nav route={route} />
-      {route === "/demo" ? <Demo /> : <Landing />}
+      {route === "/demo" ? <Demo /> : route === "/docs" ? <Docs /> : <Landing />}
       <Footer />
     </MotionConfig>
   )

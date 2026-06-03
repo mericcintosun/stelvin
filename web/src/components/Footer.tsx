@@ -19,6 +19,7 @@ export function Footer() {
           <div className="flex flex-col gap-2.5 text-sm">
             <span className="font-mono text-xs uppercase tracking-widest text-text-muted">Product</span>
             <button onClick={() => navigate("/demo")} className="text-left text-text-dim hover:text-text">Live demo</button>
+            <button onClick={() => navigate("/docs")} className="text-left text-text-dim hover:text-text">Docs</button>
             <a href="#how" onClick={() => navigate("/")} className="text-text-dim hover:text-text">How it works</a>
             <a href="#honesty" onClick={() => navigate("/")} className="text-text-dim hover:text-text">What we hide</a>
           </div>

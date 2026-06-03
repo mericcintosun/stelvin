@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react"
 
-// Tiny hash router — two routes (#/ landing, #/demo), no dependency. Hash keeps
-// the Vite SPA deploy trivial (no server rewrite needed for static hosting).
-export type Route = "/" | "/demo"
+// Tiny hash router — landing / demo / docs, no dependency. Hash keeps the Vite
+// SPA deploy trivial (no server rewrite needed for static hosting).
+export type Route = "/" | "/demo" | "/docs"
 
 function parse(): Route {
   const h = window.location.hash.replace(/^#/, "") || "/"
-  return h.startsWith("/demo") ? "/demo" : "/"
+  if (h.startsWith("/docs")) return "/docs"
+  if (h.startsWith("/demo")) return "/demo"
+  return "/"
 }
 
 export function useRoute(): Route {

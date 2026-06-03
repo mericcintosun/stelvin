@@ -45,6 +45,12 @@ export function Nav({ route }: { route: Route }) {
           >
             Demo
           </button>
+          <button
+            onClick={() => navigate("/docs")}
+            className={cn("text-sm transition-colors hover:text-text", route === "/docs" ? "text-text" : "text-text-dim")}
+          >
+            Docs
+          </button>
           <a href={LINKS.github} target="_blank" rel="noreferrer" className="text-sm text-text-dim transition-colors hover:text-text">
             GitHub
           </a>
@@ -77,6 +83,9 @@ export function Nav({ route }: { route: Route }) {
               ))}
             <button onClick={() => { navigate("/demo"); setOpen(false) }} className="text-left text-text-dim">
               Demo
+            </button>
+            <button onClick={() => { navigate("/docs"); setOpen(false) }} className="text-left text-text-dim">
+              Docs
             </button>
             <a href={LINKS.github} target="_blank" rel="noreferrer" className="text-text-dim">
               GitHub
