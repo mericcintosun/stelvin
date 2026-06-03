@@ -31,32 +31,51 @@ export default function Demo() {
   const [done, setDone] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [left, setLeft] = useState<Left | null>(null)
+  const [leftStage, setLeftStage] = useState(0) // 0..4 — staged reveal of the LEFT sandwich (kills dead air)
+  const [retry, setRetry] = useState<{ R: number; remaining: number } | null>(null)
+  const [exhausted, setExhausted] = useState(false)
   const [right, setRight] = useState<Right>({ attempts: [] })
   const esRef = useRef<EventSource | null>(null)
+  const timersRef = useRef<number[]>([])
 
   function run() {
     esRef.current?.close()
-    setRunning(true); setDone(false); setErr(null); setLeft(null); setRight({ attempts: [] })
+    timersRef.current.forEach(clearTimeout); timersRef.current = []
+    setRunning(true); setDone(false); setErr(null); setLeft(null); setLeftStage(0)
+    setRetry(null); setExhausted(false); setRight({ attempts: [] })
     const es = new EventSource(`${BACKEND}/api/demo`)
     esRef.current = es
     es.onmessage = (ev) => {
       const e = JSON.parse(ev.data)
       switch (e.type) {
         case "left_init": setLeft(e); break
-        case "left_result": setLeft((p) => ({ ...(p as Left), ...e })); break
+        case "left_result":
+          setLeft((p) => ({ ...(p as Left), ...e }))
+          // Stage the sandwich reveal across the right-side countdown so the
+          // comparison stays in motion instead of resolving in ~1s (Kaan).
+          ;[1, 2, 3, 4].forEach((stage, i) => {
+            timersRef.current.push(window.setTimeout(() => setLeftStage(stage), 1200 + i * 2600))
+          })
+          break
         case "kyc": setRight((p) => ({ ...p, permissioned: e.permissioned })); break
         case "kyc_reject": setRight((p) => ({ ...p, kycReject: e.blocked })); break
-        case "batch_opened": setRight((p) => ({ ...p, batchId: e.batchId, R: e.R })); break
+        case "batch_opened": setRetry(null); setRight((p) => ({ ...p, batchId: e.batchId, R: e.R, attempts: [], revealed: false })); break
         case "orders_submitted": setRight((p) => ({ ...p, aoid: e.aoid, boid: e.boid, ciphertext: e.ciphertext, bytes: e.bytes })); break
         case "bot_attempt": setRight((p) => ({ ...p, attempts: [...p.attempts, e as Attempt] })); break
-        case "reveal": setRight((p) => ({ ...p, revealed: true })); break
+        case "feeder_skip": setRetry({ R: e.R, remaining: e.remaining }); break
+        case "reveal": setRetry(null); setRight((p) => ({ ...p, revealed: true })); break
         case "settled": setRight((p) => ({ ...p, ...e })); break
         case "oracle": setRight((p) => ({ ...p, oracle: e as Oracle })); break
+        case "feeder_exhausted": setExhausted(true); break
         case "done": setDone(true); setRunning(false); es.close(); break
         case "error": setErr(e.message); setRunning(false); es.close(); break
       }
     }
-    es.onerror = () => { setErr(`connection lost — is the demo backend running? (${BACKEND})`); setRunning(false); es.close() }
+    es.onerror = () => {
+      // Don't blame our own backend — it may be the network or the live stream ending.
+      setErr("Live stream interrupted. A recorded run is in demo/sample-run.txt.")
+      setRunning(false); es.close()
+    }
   }
 
   const latest = right.attempts[right.attempts.length - 1]
@@ -88,7 +107,6 @@ export default function Demo() {
             className="mt-6 rounded-[var(--radius)] border border-attack/40 bg-attack/10 px-4 py-3 text-sm text-text-dim"
           >
             ⚠ {err}
-            <span className="ml-1 text-text-muted">Start it with <code className="text-text">cd settler &amp;&amp; npm run server</code>.</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -113,14 +131,15 @@ export default function Demo() {
               </Meta>
               {left.botProfit !== undefined ? (
                 <ol className="mt-4 space-y-2.5">
-                  <Step n="1" label="bot front-runs" detail={`buys ${left.xBot} tUSTB → price up`} />
-                  <Step n="2" label="desk fills worse" detail={`gets ${left.xAlice} tUSTB (fair was ${left.xFair})`} />
-                  <Step n="3" label="bot back-runs" detail={`sells ${left.xBot} tUSTB → ${left.usdcBack} USDC`} />
+                  {leftStage >= 1 && <Step n="1" label="bot front-runs" detail={`buys ${left.xBot} tUSTB → price up`} />}
+                  {leftStage >= 2 && <Step n="2" label="desk fills worse" detail={`gets ${left.xAlice} tUSTB (fair was ${left.xFair})`} />}
+                  {leftStage >= 3 && <Step n="3" label="bot back-runs" detail={`sells ${left.xBot} tUSTB → ${left.usdcBack} USDC`} />}
+                  {leftStage < 3 && <Meta className="animate-pulse">sandwiching…</Meta>}
                 </ol>
               ) : (
                 <Meta className="mt-4 animate-pulse">sandwiching…</Meta>
               )}
-              {left.botProfit !== undefined && (
+              {left.botProfit !== undefined && leftStage >= 4 && (
                 <ResultBar tone="attack">
                   <span>bot profit <b className="text-attack">+{left.botProfit} USDC</b></span>
                   <span className="text-text-muted">·</span>
@@ -192,6 +211,27 @@ export default function Demo() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* feeder skip — amber, demo-safe; never blames the venue */}
+          <AnimatePresence>
+            {retry && (
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="mt-4 rounded-[var(--radius-sm)] border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-text-dim"
+              >
+                ⏳ drand <b className="text-warn">beacon skipped round {retry.R}</b> — auto-retrying with a fresh sealed batch
+                {retry.remaining > 0 ? ` (${retry.remaining} left)` : ""}.{" "}
+                <span className="text-text-muted">That's the public beacon, not the venue.</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {exhausted && (
+            <div className="mt-4 rounded-[var(--radius-sm)] border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-text-dim">
+              ⏳ the drand feeder skipped several rounds — a recorded run is in{" "}
+              <code className="text-text">demo/sample-run.txt</code>.
+            </div>
+          )}
 
           {right.revealed && !settled && (
             <Meta className="mt-4 text-revealed">round R reached — decrypting &amp; settling on-chain…</Meta>

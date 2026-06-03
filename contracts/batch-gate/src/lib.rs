@@ -63,6 +63,16 @@ const FEAS_SCALE: i128 = 1_000_000_000;
 const BPS_DENOM: i128 = 10_000;
 const MAX_FEE_BPS: u32 = 1_000;
 
+/// Per-order field bounds (ADR-019). Soroban release builds do NOT trap on i128
+/// overflow, so we bound the settler-supplied `amount`/`limit_price` to keep every
+/// product in `match_and_settle` well inside i128 (~1.7e38). With these caps the
+/// hottest term `amount * m` (m ≤ MAX_ORDERS·MAX_AMOUNT) ≤ 1e16 · 1.6e17 ≈ 1.6e33 —
+/// >5 orders of magnitude of headroom. Both are far larger than any realistic trade
+/// (MAX_AMOUNT = 1e16 atomic ≈ 1e9 whole tokens at 7 decimals; MAX_PRICE = 1e15 ≈
+/// price 1e8 at PRICE_SCALE).
+const MAX_AMOUNT: i128 = 10_000_000_000_000_000;
+const MAX_PRICE: i128 = 1_000_000_000_000_000;
+
 const MIN_TTL: u32 = 17_280;
 const EXTEND_TO: u32 = 518_400;
 
@@ -737,6 +747,12 @@ impl BatchGate {
             let order = load_order(env, r.order_id);
             assert!(order.batch_id == batch.id, "order not in this batch");
             assert!(r.amount > 0 && r.limit_price > 0, "bad order fields");
+            // Bound settler-supplied fields so no product in matching can overflow
+            // i128 (ADR-019; Soroban release builds don't trap on overflow).
+            assert!(
+                r.amount <= MAX_AMOUNT && r.limit_price <= MAX_PRICE,
+                "order field exceeds cap"
+            );
             let leg = Leg {
                 trader: order.trader,
                 amount: r.amount,

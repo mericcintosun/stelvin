@@ -69,42 +69,42 @@ say "Deposit (alice 500k USDC, bob 500k tUSTB)"
 stellar contract invoke --id $GATE --source alice --network $NET -- deposit_funds --trader $ALICE --asset $USDC_SAC --amount 500000 >/dev/null
 stellar contract invoke --id $GATE --source bob   --network $NET -- deposit_funds --trader $BOB   --asset $X_SAC    --amount 500000 >/dev/null
 
-say "Create batch (R = relay latest + 20 ~60s ahead)"
-LATEST=$(stellar contract invoke --id $RELAY --source admin --network $NET -- latest 2>/dev/null | grep -oE '\[[0-9]+' | tr -d '[')
-R=$((LATEST + 20))
-BATCH=$(stellar contract invoke --id $GATE --source admin --network $NET -- create_batch --reveal_round $R 2>/dev/null | num)
-echo "reveal_round=$R  batch_id=$BATCH"
+say "Create batch + submit + settle (auto-retry if the drand feeder skips round R)"
+latest(){ stellar contract invoke --id $RELAY --source admin --network $NET -- latest 2>/dev/null | grep -oE '\[[0-9]+' | tr -d '['; }
+DONE=0
+for attempt in 1 2 3; do
+  R=$(( $(latest) + 18 ))
+  BATCH=$(stellar contract invoke --id $GATE --source admin --network $NET -- create_batch --reveal_round $R 2>/dev/null | num)
+  AOID=$(stellar contract invoke --id $GATE --source alice --network $NET -- submit_order --trader $ALICE --batch_id $BATCH --ciphertext deadbeef0a11ce 2>/dev/null | num)
+  BOID=$(stellar contract invoke --id $GATE --source bob   --network $NET -- submit_order --trader $BOB   --batch_id $BATCH --ciphertext deadbeef0b0b   2>/dev/null | num)
+  echo "attempt $attempt: reveal_round=$R  batch_id=$BATCH  alice=$AOID  bob=$BOID"
 
-say "Submit orders (alice Buy, bob Sell; ciphertext is opaque)"
-AOID=$(stellar contract invoke --id $GATE --source alice --network $NET -- submit_order --trader $ALICE --batch_id $BATCH --ciphertext deadbeef0a11ce 2>/dev/null | num)
-BOID=$(stellar contract invoke --id $GATE --source bob   --network $NET -- submit_order --trader $BOB   --batch_id $BATCH --ciphertext deadbeef0b0b   2>/dev/null | num)
-echo "alice order_id=$AOID  bob order_id=$BOID"
+  if [ "$attempt" = "1" ]; then
+    if stellar contract invoke --id $GATE --source mallory --network $NET -- submit_order --trader $MALLORY --batch_id $BATCH --ciphertext deadbeef >/dev/null 2>&1; then
+      echo "UNEXPECTED: mallory (no KYC) was allowed"; exit 1
+    else echo "✓ mallory (no KYC) rejected by the permissioned gate"; fi
+  fi
 
-say "RWA gate proof: an un-KYC'd address (mallory) is rejected on-chain"
-if stellar contract invoke --id $GATE --source mallory --network $NET -- submit_order --trader $MALLORY --batch_id $BATCH --ciphertext deadbeef >/dev/null 2>&1; then
-  echo "UNEXPECTED: mallory (no KYC) was allowed"; exit 1
-else
-  echo "✓ mallory (no KYC) rejected by the permissioned gate"
-fi
+  V=""; SKIP=0
+  for i in $(seq 1 60); do
+    V=$(stellar contract invoke --id $RELAY --source admin --network $NET -- get --round $R 2>/dev/null | grep -oE '[0-9a-f]{64}' | head -1 || true)
+    [ -n "$V" ] && { echo "round $R available"; break; }
+    [ "$(latest)" -gt "$((R + 4))" ] && { echo "⚠ feeder SKIPPED round $R — retrying with a fresh batch"; SKIP=1; break; }
+    sleep 4
+  done
+  [ "$SKIP" = "1" ] && continue
+  [ -n "$V" ] || { echo "timeout waiting for round $R"; continue; }
 
-say "Wait for reveal round R to land in the relay (feeder)"
-V=""
-for i in $(seq 1 48); do
-  V=$(stellar contract invoke --id $RELAY --source admin --network $NET -- get --round $R 2>/dev/null | grep -oE '[0-9a-f]{64}' | head -1 || true)
-  [ -n "$V" ] && { echo "round $R available after ~$((i*5))s"; break; }
-  sleep 5
+  SIG=$(curl -s --max-time 15 "https://api.drand.sh/$CHAIN/public/$R" | sed -E 's/.*"signature":"([0-9a-f]*)".*/\1/')
+  COMPUTED=$(printf '%s' "$SIG" | xxd -r -p | shasum -a 256 | awk '{print $1}')
+  [ "$COMPUTED" = "$V" ] || { echo "ENCODING MISMATCH"; exit 1; }
+  echo "sha256(sigma)==relay.get(R) ✓"
+  stellar contract invoke --id $GATE --source admin --network $NET -- \
+    settle --batch_id $BATCH --sigma_r $SIG \
+    --revealed "[{\"order_id\":$AOID,\"side\":\"Buy\",\"amount\":\"10000\",\"limit_price\":\"10010000\"},{\"order_id\":$BOID,\"side\":\"Sell\",\"amount\":\"10000\",\"limit_price\":\"10000000\"}]" >/dev/null
+  DONE=1; break
 done
-[ -n "$V" ] || { echo "timeout waiting for round $R"; exit 1; }
-
-say "Fetch raw compressed sigma + verify encoding"
-SIG=$(curl -s --max-time 15 "https://api.drand.sh/$CHAIN/public/$R" | sed -E 's/.*"signature":"([0-9a-f]*)".*/\1/')
-COMPUTED=$(printf '%s' "$SIG" | xxd -r -p | shasum -a 256 | awk '{print $1}')
-[ "$COMPUTED" = "$V" ] && echo "sha256(sigma)==relay.get(R) ✓" || { echo "ENCODING MISMATCH"; exit 1; }
-
-say "Settle (uniform price computed on-chain; tUSTB/USDC block near par, 2 bps fee)"
-stellar contract invoke --id $GATE --source admin --network $NET -- \
-  settle --batch_id $BATCH --sigma_r $SIG \
-  --revealed "[{\"order_id\":$AOID,\"side\":\"Buy\",\"amount\":\"10000\",\"limit_price\":\"10010000\"},{\"order_id\":$BOID,\"side\":\"Sell\",\"amount\":\"10000\",\"limit_price\":\"10000000\"}]" >/dev/null
+[ "$DONE" = "1" ] || { echo "drand feeder skipped 3 rounds — re-run (recorded fallback: demo/sample-run.txt)"; exit 1; }
 
 say "Verify standing balances + clearing + accrued venue fee"
 bal(){ stellar contract invoke --id $GATE --source admin --network $NET -- get_balance --trader "$1" --asset "$2" 2>/dev/null | grep -oE '"[0-9]+"' | tr -d '"' | tail -1; }

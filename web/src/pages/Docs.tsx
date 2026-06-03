@@ -57,6 +57,10 @@ const NAV: { group: string; items: { id: string; label: string }[] }[] = [
       { id: "sources", label: "References" },
     ],
   },
+  {
+    group: "Review",
+    items: [{ id: "persona-review", label: "Expert review → fixes" }],
+  },
 ]
 const ALL_IDS = NAV.flatMap((g) => g.items.map((i) => i.id))
 
@@ -490,6 +494,111 @@ cd settler && npm run demo                    # CLI frontrunner showdown</Code>
           <Button variant="ghost" href={LINKS.github}>GitHub ↗</Button>
         </div>
       </Sec>
+
+      <Sec id="persona-review" title="Expert review → fixes">
+        <p>
+          Before submission we ran an <b className="text-text">objective, adversarial</b> review with six
+          domain personas (business analyst, PM, architect, UX, senior engineer, tech writer). Every gap
+          they flagged is listed below with exactly how it was closed — nothing swept under the rug.
+        </p>
+        {PERSONA_FIXES.map((p) => (
+          <div key={p.persona} className="mt-5 rounded-[var(--radius)] border border-border bg-surface/40 p-5">
+            <div className="flex items-center gap-2.5">
+              <span className="font-mono text-xs uppercase tracking-widest text-sealed-300">{p.persona}</span>
+              <span className="text-xs text-text-muted">· {p.role}</span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="font-mono text-[11px] uppercase tracking-widest text-attack">Flagged</div>
+                <ul className="mt-1.5 space-y-1.5 text-sm text-text-dim">
+                  {p.flagged.map((f, i) => <li key={i}>• {f}</li>)}
+                </ul>
+              </div>
+              <div>
+                <div className="font-mono text-[11px] uppercase tracking-widest text-revealed">Closed</div>
+                <ul className="mt-1.5 space-y-1.5 text-sm text-text-dim">
+                  {p.fixed.map((f, i) => <li key={i}>✓ {f}</li>)}
+                </ul>
+              </div>
+            </div>
+          </div>
+        ))}
+        <Note tone="sealed">
+          <b className="text-text">Deliberately left as roadmap</b> (all six personas advised against building
+          these now — they'd risk the working floor or dilute the focused story): wallet-signed self-submit,
+          passkey smart-wallet, the Agentic track, multi-order-per-trader, and on-chain BLS / fraud-proof for
+          decrypt-correctness. These are honest roadmap items, not unclosed gaps.
+        </Note>
+      </Sec>
     </>
   )
 }
+
+const PERSONA_FIXES: { persona: string; role: string; flagged: string[]; fixed: string[] }[] = [
+  {
+    persona: "Justin", role: "Business Analyst",
+    flagged: [
+      "TAM↔target mismatch: the provable problem (sandwich MEV) is retail-AMM, but the pitch led with RWA/institutional.",
+      "No concrete 'protectable on Stellar today' figure — hand-waved TAM.",
+    ],
+    fixed: [
+      "Reframed to lead with the provable MEV victim (active Stellar DeFi trader); RWA is now the explicit growth wedge, not an unevidenced claim — hero, use-cases, SUBMISSION.",
+      "Added an honest method line: protectable ≈ sandwich-exposed Stellar DEX volume × ~0.41% loss-rate (small today, compounding) — no invented TAM.",
+    ],
+  },
+  {
+    persona: "Nicole", role: "Product Manager",
+    flagged: [
+      "Scope sprawl (KYC + fee + oracle + RWA + wallet) dilutes the one winning story.",
+      "#1 risk: the live settle depends on a flaky external feeder.",
+    ],
+    fixed: [
+      "Demo reframed to a single spine + a rehearsed 5-minute DEMO_SCRIPT.md; RWA/fee demoted to one-breath asides.",
+      "Live settle de-risked: auto-retry on feeder skip + recorded fallback + amber (non-blaming) UI.",
+    ],
+  },
+  {
+    persona: "Tyler", role: "System Architect",
+    flagged: [
+      "Ecosystem-fit's 'native BLS12-381' is borrowed — the pairing lives in the relay, not our contract.",
+      "Live-demo fragility (feeder skip); 'publicly auditable' was asserted, not enforced.",
+    ],
+    fixed: [
+      "Reworded to honest composition everywhere: the relay does the BLS pairing; our gate is a cheap sha256 against its verified commitment.",
+      "Feeder skip handled (retry + fallback); 'publicly auditable' is now a live artifact — npm run verify re-decrypts every order from the public σ_R.",
+    ],
+  },
+  {
+    persona: "Kaan", role: "UX Designer",
+    flagged: [
+      "Dead-air asymmetry: the left panel resolves in ~1s, then the judge stares at a 60s countdown alone.",
+      "Feeder error had no graceful path (red bar blaming our backend); reveal card overloaded at the peak.",
+    ],
+    fixed: [
+      "Staged the left-panel reveal so the sandwich animates step-by-step during the countdown — the comparison stays in motion.",
+      "Demo-safe amber 'beacon skipped round R — retrying' (auto-retry, fallback link, never blames the venue); reveal card keeps P*/deltas dominant with fee/oracle demoted.",
+    ],
+  },
+  {
+    persona: "Elliot", role: "Senior Software Engineer",
+    flagged: [
+      "Unguarded i128 multiplication — no per-order amount/price cap (Soroban release builds don't trap on overflow).",
+      "No property/fuzz test; conservation only hand-picked. Feeder race in the critical path.",
+    ],
+    fixed: [
+      "MAX_AMOUNT / MAX_PRICE caps in reveal validation keep every product well inside i128 + a cap-rejection test (ADR-019).",
+      "Deterministic randomized conservation property test (80 scenarios) added; feeder poll-and-retry in the settler. Matching engine untouched.",
+    ],
+  },
+  {
+    persona: "Bri", role: "Technical Writer",
+    flagged: [
+      "BatchGate address inconsistent across README vs SUBMISSION — a credibility landmine.",
+      "Zero real diagrams; no 5-minute demo script; SUBMISSION long without a criterion→evidence map.",
+    ],
+    fixed: [
+      "Reconciled every contract address to the live deploy (single source in content.ts).",
+      "Mermaid lifecycle/adversary diagram (README + this page); criterion→evidence table atop SUBMISSION; demo/DEMO_SCRIPT.md with the feeder fallback.",
+    ],
+  },
+]

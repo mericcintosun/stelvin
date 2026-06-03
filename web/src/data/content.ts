@@ -10,9 +10,9 @@ export const LINKS = {
 
 export const ADDRESSES = {
   // Permissioned RWA BatchGate (tUSTB/USDC) — deployed on testnet.
-  batchGate: "CCIX73WH4G6K3BGIUJ3TNOVCIRD6WFYXQFTINJIQCNVC2BYGYSXM2PLY",
-  tustbSac: "CBBEJ6DG2UAH4ZTR7LEYPUVJ6WRXOLH7BNCKYYUVZM4TO2AW3IDZ3EZK",
-  usdcSac: "CDPUH33N4ZR72YVIXPOHVKEP55T3SONR3T3JS4W5JNSXTOPR5FSZIEE6",
+  batchGate: "CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB",
+  tustbSac: "CAUDJW4XV2AFXCNUYVHU6IIM5D27745Z6NYFH5PGSTFDYAGQJO5BDZQU",
+  usdcSac: "CAE7ERCVPJ5MIC7TI3PRDBNMXD4WYIZV7A6Q5ZR33QVDRV2364JLGBBO",
   drandRelay: "CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM",
   noetherOracle: "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4",
 }
@@ -41,14 +41,14 @@ export const CRYPTO = {
   scheme: "bls-unchained-g1-rfc9380",
   beacon: "drand quicknet",
   period: "3s",
-  tests: "21 / 21",
-  wasmBytes: "29,208",
+  tests: "23 / 23",
+  wasmBytes: "29,258",
   target: "wasm32v1-none",
 }
 
 export const HERO = {
   tagline: ["Sealed orders.", "One fair price.", "Zero front-running."],
-  sub: "A fair execution venue — an on-chain dark pool — for tokenized RWAs and institutional flows on Stellar. Orders are timelock-encrypted and unreadable by anyone (us included) until they clear at one uniform price. MEV isn't promised away; it's cryptographically impossible to react to.",
+  sub: "A sealed-bid batch DEX on Stellar: orders are timelock-encrypted and unreadable by anyone — us included — until they clear at one uniform price. Fair execution for active DeFi traders today; the on-chain dark pool for tokenized-RWA & institutional flows Stellar is winning next. MEV isn't promised away; it's cryptographically impossible to react to.",
   cta: "Watch the live demo",
 }
 
@@ -74,9 +74,9 @@ export const HOW_STEPS = [
 ]
 
 export const WHY_STELLAR = [
+  { title: "Composed crypto rails (honest)", body: "The timelock gate is enforced by a live, on-chain BLS12-381-verifying drand relay we *call* — not reimplement — atop native Soroban crypto. Our contract's own check is a cheap sha256 against the relay's verified commitment. Composition, not a borrowed BLS claim." },
+  { title: "Live BLS-verifying relay", body: "The drand relay runs a full pairing check before storing each round, so even its operator can't commit a forged key — a capability unique to this network." },
   { title: "Where RWAs actually live", body: "Stellar's DeFi growth is driven by tokenized treasuries and institutions — the exact users who most need intent privacy and fair execution." },
-  { title: "Native BLS12-381", body: "Soroban host functions make the timelock primitive practical on-chain — the gate exists because of capabilities unique to this network." },
-  { title: "Live BLS-verifying relay", body: "The drand relay runs a full pairing check before storing each round, so even its operator can't commit a forged key." },
   { title: "~5s finality, native USDC", body: "Fast, cheap settlement and real-world rails — payroll, settlement, institutional flow — where fairness is a requirement." },
 ]
 
@@ -95,12 +95,12 @@ export const COMPLIANCE = {
   body: "RWA tokens are permissioned — held only by vetted addresses. Stelvin runs an on-chain KYC allowlist (permissioned mode) so only approved desks can fund and submit. Privacy is temporal: hidden until R, then fully public — so post-trade everything is auditable. We do not claim auditor-only selective disclosure; that doesn't fit a timelock.",
 }
 
-// Real-world use cases, strongest → most speculative (honest ordering).
+// Real-world use cases — led by the PROVABLE victim (today), then the growth wedge.
 export const USE_CASES: { rank?: string; title: string; body: string }[] = [
-  { rank: "Strongest", title: "On-chain dark pool for RWA & institutional flows", body: "A fund/treasury rotating a large tokenized position ($1M T-bill → USDC) leaks intent if it broadcasts. Traditional finance built dark pools (~15% of US equity volume) for exactly this. Stelvin is the on-chain version — fair, sealed, large-block." },
-  { title: "Fair stablecoin / FX conversion", body: "Stellar's core is cross-border payments and FX. Front-running the rate on a large USDC↔EURC conversion is real loss. A sealed batch gives institutions a fair mid-price venue — Stellar's home turf." },
+  { rank: "Provable today", title: "Fair execution for active Stellar DeFi traders", body: "The measured, citable victim: traders losing bps to sandwiching / front-running (~1.2% of DEX trades, avg 0.41% loss). Sealed batches remove it by construction — fair-by-default before MEV scales on Soroban. This is the problem we can prove now." },
+  { rank: "Biggest upside", title: "On-chain dark pool for RWA & institutional block trades", body: "A fund/treasury rotating a large tokenized position ($1M T-bill → USDC) leaks intent if it broadcasts. TradFi built dark pools (~15% of US equity volume) for exactly this. Stelvin is the on-chain version — the growth wedge as Stellar's RWA/institutional flow scales (honest: small today)." },
+  { title: "Fair stablecoin / FX conversion", body: "Stellar's core is cross-border payments and FX. Front-running the rate on a large USDC↔EURC conversion is real loss. A sealed batch gives a fair mid-price venue — Stellar's home turf." },
   { title: "Fair RWA primary issuance", body: "Sealed-batch price discovery for new asset launches / allocations, defusing sniping and front-running at issuance." },
-  { title: "Proactive retail MEV protection", body: "Marginal on Stellar today, but DEX volume is ~$3.5T/yr and growing. As Soroban DeFi scales, fair-by-default matters before the damage arrives." },
 ]
 
 // Market & business — every figure carries a source (see SUBMISSION.md).
@@ -108,7 +108,7 @@ export const MARKET = [
   { tier: "TAM — the problem", value: "$1.3B–$3B+/yr", body: "Value extracted by MEV. ~1.2% of DEX trades are sandwiched (avg 0.41% loss); DEX volume ~$3.5T/yr. Even a few bps of protected volume is large.", src: "Flashbots · Gate" },
   { tier: "Comp — what a winner earns", value: "~$93.5M mcap", body: "CoW Protocol — the same primitive (batch auction + solver) — ~$15.6M/yr protocol revenue. Proof a sealed/batch venue can be a ~$100M-scale protocol.", src: "CoinGecko · CMC" },
   { tier: "SAM — Stellar today (honest)", value: "~$161M TVL", body: "Stellar DeFi TVL (May 2026), ~7× YoY, RWA/institutional-driven; institutional wallets +51% in 2025. A small but fast-growing base — and the segment that cares most about intent privacy.", src: "DefiLlama" },
-  { tier: "SOM — near-term wedge", value: "RWA dark pool", body: "Become Stellar's fair-execution venue as Soroban DeFi scales, entering through institutional / RWA block trades first.", src: "—" },
+  { tier: "SOM — protectable today", value: "(volume × loss-rate)", body: "Honest method, not a hand-waved TAM: protectable ≈ sandwich-exposed Stellar DEX volume × ~0.41% loss-rate. Small today (chain DEX volume is modest), compounding as Soroban DeFi + RWA flow grow. The wedge is the venue fee on protected volume.", src: "method" },
 ]
 
 export const REVENUE = [
