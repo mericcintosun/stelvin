@@ -74,7 +74,7 @@ auditable**, by construction.
 - ✅ **M1 — Contract.** `deposit_funds`/`withdraw`, `create_batch`, `submit_order`,
   `lock_batch`, `settle` + on-chain matching, reveal dedup, one-order-per-trader
   guard, lifecycle events, **backward-compatible permissioned KYC allowlist** (RWA),
-  **conservation-safe protocol fee** (`fee_bps`). **23/23 unit tests** (conservation +
+  **conservation-safe protocol fee** (`fee_bps`). **25/25 unit tests** (conservation +
   no-revert + dedup + KYC gate + fee). `wasm32v1-none`.
 - ✅ **RWA pivot.** Asset-agnostic contract → demo trades a tokenized US T-bill
   (tUSTB) vs USDC near par; permissioned (KYC) mode allowlists desks and rejects
@@ -96,13 +96,13 @@ auditable**, by construction.
 ## Run & verify
 
 ```sh
-cargo test -p batch-gate                  # 23/23 contract tests
+cargo test -p batch-gate                  # 25/25 contract tests
 bash scripts/deploy_and_smoke.sh          # deploy + end-to-end on testnet (one command)
 cd settler && npm install && npm run demo # the frontrunner-bot showdown (live)
 ```
 
 Deployed (testnet, inspectable on stellar.expert): BatchGate
-`CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB` · Drand-Relay
+`CAFQP734PFBBUCQQCD2NXUB6CDTXCWAHYT4ZUWJM5FNKOUBZPSM7STQE` · Drand-Relay
 `CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM`. Full address/figure
 table in [`SUBMISSION.md`](./SUBMISSION.md).
 

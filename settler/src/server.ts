@@ -13,7 +13,7 @@
 import express from "express"
 import {
   E, inv, asInt, sleep, RWA,
-  relayLatestRound, relayGet, getBalance, getOrderCiphertext, getFees,
+  relayLatestRound, relayGet, getBalance, getBatch, getOrderCiphertext, getFees,
   getPermissioned, isKyc, getFeeBps,
   encryptOrder, decryptHex, fetchSigma, sha256hex, readOracleFairValue, type Order,
 } from "./lib.js"
@@ -28,6 +28,34 @@ app.use((_req, res, next) => {
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, gate: E.GATE }))
 
+// Public auditor (ADR-014/019): re-decrypt every on-chain order of a settled
+// batch from the PUBLIC drand sigma_R — no settler trust, no admin keys. Lets the
+// frontend prove "v1-optimistic but publicly auditable" live. Same logic as
+// settler/src/verify.ts, exposed over HTTP for the demo's "Verify" button.
+app.get("/api/verify", async (req, res) => {
+  const batchId = Number(req.query.batch)
+  if (!Number.isInteger(batchId)) return res.status(400).json({ ok: false, error: "bad batch id" })
+  try {
+    const b = getBatch(batchId)
+    if (!b) return res.json({ ok: false, error: `batch #${batchId} not found` })
+    const committed = relayGet(b.reveal_round)
+    if (!committed) return res.json({ ok: false, error: `round ${b.reveal_round} not yet on the relay — nothing to audit pre-reveal` })
+    const sigma = await fetchSigma(b.reveal_round)
+    const sigmaMatchesRelay = sha256hex(sigma) === committed
+    const orders: { orderId: number; decrypted?: Order; placeholder?: boolean }[] = []
+    for (const oid of b.order_ids) {
+      try {
+        orders.push({ orderId: oid, decrypted: await decryptHex(getOrderCiphertext(oid)) })
+      } catch {
+        orders.push({ orderId: oid, placeholder: true })
+      }
+    }
+    res.json({ ok: true, batchId, revealRound: b.reveal_round, sigmaMatchesRelay, orders })
+  } catch (e) {
+    res.json({ ok: false, error: String((e as Error).message) })
+  }
+})
+
 // Demo desk onboarding (Phase B · slice 2a): allowlist a connected wallet address.
 // DEMO ONLY — in production this is the RWA issuer / compliance role.
 app.get("/api/kyc", (req, res) => {
@@ -35,6 +63,34 @@ app.get("/api/kyc", (req, res) => {
   if (!/^G[A-Z0-9]{55}$/.test(address)) return res.status(400).json({ ok: false, error: "invalid address" })
   try {
     inv(E.GATE, "admin", `set_kyc --trader ${address} --allowed true`)
+    res.json({ ok: true })
+  } catch (e) {
+    res.json({ ok: false, error: String((e as Error).message) })
+  }
+})
+
+// Wallet Phase B — open a fresh sealed batch on demand for a self-submitting
+// desk (create_batch is admin-only, ADR-007), returning the round R the client
+// must tlock-encrypt to.
+app.get("/api/open-batch", (_req, res) => {
+  try {
+    const R = relayLatestRound() + 20
+    const batchId = asInt(inv(E.GATE, "admin", `create_batch --reveal_round ${R}`))
+    res.json({ ok: true, batchId, R })
+  } catch (e) {
+    res.json({ ok: false, error: String((e as Error).message) })
+  }
+})
+
+// Wallet Phase B — demo faucet: the asset issuer (admin) mints test tUSTB+USDC
+// to a connected desk so it can deposit. DEMO ONLY (issuer/treasury role).
+// Requires the address to already hold trustlines (the client signs those first).
+app.get("/api/faucet", (req, res) => {
+  const address = String(req.query.address ?? "")
+  if (!/^G[A-Z0-9]{55}$/.test(address)) return res.status(400).json({ ok: false, error: "invalid address" })
+  try {
+    inv(E.USDC_SAC, "admin", `mint --to ${address} --amount 1000000`)
+    inv(E.X_SAC, "admin", `mint --to ${address} --amount 1000000`)
     res.json({ ok: true })
   } catch (e) {
     res.json({ ok: false, error: String((e as Error).message) })

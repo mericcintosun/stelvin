@@ -3,7 +3,7 @@
 MEV-resistant, sealed-bid **batch auction** on Stellar Soroban. Orders are
 drand-timelock-encrypted and unreadable (operator/settler included) until a
 committed drand round `R`; then the whole batch clears at one **on-chain uniform
-price**. See [`DECISIONS.md`](./DECISIONS.md) for the full "why" (14 ADRs, privacy
+price**. See [`DECISIONS.md`](./DECISIONS.md) for the full "why" (19 ADRs, privacy
 disclosures, milestones) — it is the source of truth. This file is the
 operational quick-reference every session reads automatically.
 
@@ -20,7 +20,7 @@ Tracks: Main (auto) + Privacy (primary). Agentic = post-hackathon.
 - Rust `1.96`, target **`wasm32v1-none`** (NOT `wasm32-unknown-unknown`).
 - `soroban-sdk = "25.3.1"`; stellar CLI `25.2`.
 - Build wasm: `stellar contract build` (output: `target/wasm32v1-none/release/batch_gate.wasm`).
-- Test: `cargo test -p batch-gate` (currently 12/12 green).
+- Test: `cargo test -p batch-gate` (currently 25/25 green).
 
 ## Soroban contract conventions (already in code — match them)
 - Storage keys via `DataKey` enum; config in instance storage, data in persistent

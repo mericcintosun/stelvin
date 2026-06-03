@@ -1,6 +1,61 @@
-import { useRef, type ReactNode, type CSSProperties, type MouseEvent } from "react"
-import { motion, useInView } from "motion/react"
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties, type MouseEvent } from "react"
+import { animate, motion, useInView, useScroll, useSpring } from "motion/react"
 import { cn } from "../lib/cn"
+
+// ── ScrollProgress: a thin sealed→revealed bar pinned to the top, tracking the
+//    whole-page scroll. Cheap (compositor-only transform), reads as premium. ──
+export function ScrollProgress() {
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.3 })
+  return (
+    <motion.div
+      aria-hidden
+      style={{ scaleX }}
+      className="fixed inset-x-0 top-0 z-[60] h-0.5 origin-left bg-gradient-to-r from-sealed via-sealed-300 to-revealed"
+    />
+  )
+}
+
+// ── Counter: counts up to a number when scrolled into view (once). Honors
+//    reduced-motion by snapping to the final value. Numbers stay sourced from
+//    content.ts — we only animate to the same value. ──
+export function Counter({
+  value,
+  decimals = 0,
+  prefix = "",
+  suffix = "",
+  className,
+}: {
+  value: number
+  decimals?: number
+  prefix?: string
+  suffix?: string
+  className?: string
+}) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const inView = useInView(ref, { once: true, margin: "-10% 0px -10% 0px" })
+  const [display, setDisplay] = useState(0)
+  useEffect(() => {
+    if (!inView) return
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(value)
+      return
+    }
+    const controls = animate(0, value, {
+      duration: 1.1,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => setDisplay(v),
+    })
+    return () => controls.stop()
+  }, [inView, value])
+  return (
+    <span ref={ref} className={cn("tabular-nums", className)}>
+      {prefix}
+      {display.toFixed(decimals)}
+      {suffix}
+    </span>
+  )
+}
 
 // ── Reveal: scroll-triggered fade/rise. Honors reduced-motion via Framer's
 //    global MotionConfig fallback + the css media query (transition collapses). ──

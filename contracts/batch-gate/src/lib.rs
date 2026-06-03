@@ -34,6 +34,11 @@ use soroban_sdk::{
     contract, contractclient, contractevent, contractimpl, contracttype, token, Address, Bytes,
     BytesN, Env, Vec,
 };
+use soroban_sdk::crypto::bls12_381::{G1Affine, G2Affine};
+
+// Hardcoded drand quicknet BLS verification constants (uncompressed pubkey +
+// negated G2 generator + DST + a real test vector). See `verify_round_signature`.
+mod drand_consts;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -62,6 +67,14 @@ const FEAS_SCALE: i128 = 1_000_000_000;
 /// (ADR-018). 1000 bps = 10% — a guardrail; realistic venue fees are a few bps.
 const BPS_DENOM: i128 = 10_000;
 const MAX_FEE_BPS: u32 = 1_000;
+
+/// Griefing guard (ADR-019): an eligible order must be funded for at least this
+/// many bps of its OWN declared size to participate. Without it, a single
+/// huge-`amount` / near-zero-funding order would drive the global feasibility
+/// scalar `r → 0` and deny the entire batch (a liveness/DoS vector). 100 bps = 1%.
+/// Genuinely (even partially) funded desks clear normally; only non-genuine
+/// orders are excluded — conservation and the no-revert guarantee are untouched.
+const MIN_FUND_BPS: i128 = 100;
 
 /// Per-order field bounds (ADR-019). Soroban release builds do NOT trap on i128
 /// overflow, so we bound the settler-supplied `amount`/`limit_price` to keep every
@@ -719,6 +732,39 @@ impl BatchGate {
     pub fn get_fees(env: Env, asset: Address) -> i128 {
         fees_of(&env, &asset)
     }
+
+    /// Independent, RELAY-TRUSTLESS verification that `sig` is the authentic drand
+    /// quicknet (`bls-unchained-g1-rfc9380`) signature for `round` — performed by
+    /// OUR contract via Stellar's native BLS12-381 host functions, with the
+    /// hardcoded quicknet public key. Returns true iff
+    ///   e(sig, g2) == e(H(sha256(round_be)), pk)
+    /// i.e. `pairing_check([sig, H], [-g2, pk])`. This is the same check the
+    /// Drand-Relay does, re-done here so key authenticity needs NO trust in the
+    /// relay — composition with native crypto, not a borrowed BLS claim (ADR-002
+    /// stretch / ADR-019). `sig` is the 96-byte UNCOMPRESSED G1 signature: Soroban
+    /// has no on-chain point decompression, so the public 48-byte drand signature
+    /// is expanded off-chain (it is fully public; this adds no trust).
+    pub fn verify_round_signature(env: Env, round: u64, sig: BytesN<96>) -> bool {
+        let bls = env.crypto().bls12_381();
+        // drand unchained digest = sha256(round as 8-byte big-endian).
+        let digest: BytesN<32> = env
+            .crypto()
+            .sha256(&Bytes::from_slice(&env, &round.to_be_bytes()))
+            .into();
+        let msg = Bytes::from_slice(&env, &digest.to_array());
+        let dst = Bytes::from_slice(&env, drand_consts::DRAND_G1_DST);
+        let h = bls.hash_to_g1(&msg, &dst);
+        let sig_pt = G1Affine::from_bytes(sig);
+        let pk = G2Affine::from_bytes(BytesN::from_array(&env, &drand_consts::QUICKNET_PK));
+        let neg_g2 = G2Affine::from_bytes(BytesN::from_array(&env, &drand_consts::NEG_G2_GEN));
+        let mut g1s: Vec<G1Affine> = Vec::new(&env);
+        g1s.push_back(sig_pt);
+        g1s.push_back(h);
+        let mut g2s: Vec<G2Affine> = Vec::new(&env);
+        g2s.push_back(neg_g2);
+        g2s.push_back(pk);
+        bls.pairing_check(g1s, g2s)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -804,24 +850,45 @@ impl BatchGate {
             return (0, 0);
         }
         let price = best_price;
-        let m = best_matched;
 
-        // (2) Eligible legs at P* and their side totals.
+        // (2) Eligible legs at P*, with the griefing guard (ADR-019): a genuine
+        //     desk funds its order, so any eligible order funded for less than
+        //     MIN_FUND_BPS of its OWN size is excluded — a huge-amount /
+        //     near-zero-funding order can no longer collapse the global
+        //     feasibility scalar r and deny the whole batch. Exclusion only drops
+        //     that order (it gets no fill); conservation + no-revert are untouched.
         let mut elig_buys: Vec<Leg> = Vec::new(env);
         let mut elig_sells: Vec<Leg> = Vec::new(env);
         let mut demand: i128 = 0;
         let mut supply: i128 = 0;
         for b in buys.iter() {
             if b.limit >= price {
+                let have = balance_of(env, &b.trader, &quote_asset);
+                let feasible_base = have * PRICE_SCALE / price;
+                if feasible_base * BPS_DENOM < b.amount * MIN_FUND_BPS {
+                    continue;
+                }
                 demand += b.amount;
                 elig_buys.push_back(b);
             }
         }
         for s in sells.iter() {
             if s.limit <= price {
+                let have = balance_of(env, &s.trader, &base_asset);
+                if have * BPS_DENOM < s.amount * MIN_FUND_BPS {
+                    continue;
+                }
                 supply += s.amount;
                 elig_sells.push_back(s);
             }
+        }
+
+        // Matched volume over the GENUINELY-FUNDED eligible set — recomputed after
+        // the griefing exclusion so `raw_fill = amount * m / demand` stays within
+        // each order's amount (m must reflect the same set as demand/supply).
+        let m = if demand < supply { demand } else { supply };
+        if m == 0 {
+            return (price, 0);
         }
 
         // (3) Global feasibility scalar r ∈ [0,1]: the largest fraction such

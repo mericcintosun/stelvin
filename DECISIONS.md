@@ -343,7 +343,7 @@ definition `Σbuy_quote == Σseller_quote + protocol_fee` — quote conserves ex
 base is untouched. With `fee_bps == 0` the residual is just the prior rounding dust,
 so the original 12 + ADR-017's tests and the open demo behave identically. Covered by
 `test_fee_conserves_accrues_and_withdraws`, `test_set_fee_bps_cap`,
-`test_withdraw_fees_over_balance`, `test_fee_default_zero` (21 at that stage; 23/23 after ADR-019).
+`test_withdraw_fees_over_balance`, `test_fee_default_zero` (21 at that stage; 25/25 after ADR-019).
 **Demo value.** The demo runs a block-size trade (10,000 tUSTB) at a CoW-matched
 **2 bps** fee, so the accrued fee is real and visible on-chain; admin
 `withdraw_fees` realizes it as revenue.
@@ -385,7 +385,7 @@ trader losing bps to sandwiching) and frame RWA/institutional as the growth wedg
 aligning the pitch with the evidence base (the measured problem is retail-AMM MEV).
 **Why no-revert is unaffected.** Caps only *reject* oversized inputs before any
 multiplication; they don't change the floor-then-trim math (ADR-010), so the
-revert-proof + conservation guarantees hold. 23/23 tests green.
+revert-proof + conservation guarantees hold. 25/25 tests green.
 
 ## 5. Contract reference (BatchGate + Escrow)
 
@@ -471,8 +471,8 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
 ## 7. MVP scope
 
 **In:**
-- BatchGate + Escrow Soroban contract — **done**, 23/23 unit tests, wasm builds
-  (29,258 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate
+- BatchGate + Escrow Soroban contract — **done**, 25/25 unit tests, wasm builds
+  (31,531 bytes), `wasm32v1-none`. Includes the backward-compatible RWA/KYC gate
   (ADR-017) and the conservation-safe protocol fee (ADR-018).
 - Dual-asset (RWA `tUSTB`/USDC in the demo), standing balances, sealed orders, on-chain uniform-price
   matching, conservation-safe + revert-proof settlement, drand timing+key gate,
@@ -503,7 +503,7 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
   `create_batch`/`submit_order` (balance guard), `lock_batch`, `settle` +
   `match_and_settle` (global feasibility scalar, floor-then-trim), reveal dedup,
   lifecycle events, one-order-per-trader guard, RWA/KYC allowlist gate (ADR-017).
-  23 tests incl. conservation + no-revert + dedup + per-trader + KYC + fee + overflow caps + randomized property test; wasm release build green.
+  25 tests incl. conservation + no-revert + dedup + per-trader + KYC + fee + overflow caps + randomized property test + griefing guard + on-chain BLS verify; wasm release build green.
 - **M2 — Deploy & wire (done).** Two test SACs (X, USDC) + BatchGate deployed to
   testnet against the live relay; full end-to-end CLI smoke-test **passed and is
   reproducible** via `scripts/deploy_and_smoke.sh` (one command:
@@ -512,7 +512,7 @@ Plus (ADR-018): `FeeBpsSet(bps)`, `FeesAccrued(batch_id, asset, amount)`.
   balances change at the uniform clearing price). Confirmed: 100 X traded for 80
   USDC at `P*=0.8` (tie-break picked the lower crossing limit), conservation
   exact, `BatchSettled` event emitted. Latest BatchGate:
-  `CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB`. Next: typed
+  `CAFQP734PFBBUCQQCD2NXUB6CDTXCWAHYT4ZUWJM5FNKOUBZPSM7STQE`. Next: typed
   frontend bindings.
 - **M3 — Settler (done).** `settler/` (TypeScript, `tlock-js`). Step 0 proved the
   isolated quicknet round-trip in isolation (encrypt→R, **undecryptable before R**,

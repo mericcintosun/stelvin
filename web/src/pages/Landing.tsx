@@ -1,6 +1,6 @@
 import { motion } from "motion/react"
-import { BeaconPulse } from "../components/BeaconPulse"
-import { Button, Eyebrow, Pill, Reveal, Section, ShinyText, SpotlightCard } from "../components/primitives"
+import ScrollVideoHero from "../components/ScrollVideoHero"
+import { Button, Counter, Eyebrow, Pill, Reveal, Section, ShinyText, SpotlightCard } from "../components/primitives"
 import { navigate } from "../lib/router"
 import { LogoMark } from "../components/Logo"
 import {
@@ -9,7 +9,6 @@ import {
   contractUrl,
   CREDIBILITY,
   CRYPTO,
-  HERO,
   HIDDEN,
   HOW_STEPS,
   LINKS,
@@ -27,7 +26,7 @@ import {
 export default function Landing() {
   return (
     <main className="relative">
-      <Hero />
+      <ScrollVideoHero />
       <Problem />
       <Solution />
       <LiveProof />
@@ -39,88 +38,6 @@ export default function Landing() {
       <Market />
       <Credibility />
     </main>
-  )
-}
-
-/* ─────────────────────────── Hero ─────────────────────────── */
-function Hero() {
-  return (
-    <section className="relative overflow-hidden pt-32 sm:pt-40">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[680px] grid-faint opacity-60" />
-      <div className="mx-auto grid max-w-content items-center gap-12 px-5 pb-20 sm:px-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <div>
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-6 flex flex-wrap items-center gap-3"
-          >
-            <Pill tone="sealed">Tokenized RWA · Stellar</Pill>
-            <Pill tone="neutral">Main + Privacy</Pill>
-          </motion.div>
-
-          <h1 className="text-display font-bold">
-            {HERO.tagline.map((line, i) => (
-              <motion.span
-                key={line}
-                className="block"
-                initial={{ opacity: 0, y: 22 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.65, delay: 0.08 + i * 0.12, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {i === 2 ? <span className="text-brand-gradient">{line}</span> : line}
-              </motion.span>
-            ))}
-          </h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="mt-7 max-w-xl text-lg leading-relaxed text-text-dim"
-          >
-            {HERO.sub}
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.62 }}
-            className="mt-9 flex flex-wrap items-center gap-3"
-          >
-            <Button size="lg" onClick={() => navigate("/demo")}>
-              {HERO.cta} <span aria-hidden>→</span>
-            </Button>
-            <Button size="lg" variant="ghost" href="#how">
-              How it works
-            </Button>
-          </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.8 }}
-            className="mt-7 font-mono text-xs text-text-muted"
-          >
-            ~90s end-to-end · {CRYPTO.beacon} · {CRYPTO.scheme}
-          </motion.p>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="relative mx-auto hidden aspect-square w-full max-w-md place-items-center lg:grid"
-        >
-          <div className="absolute inset-8 rounded-full border border-border/60" />
-          <div className="absolute inset-16 rounded-full border border-border/40" />
-          <BeaconPulse className="h-72 w-72" />
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.3em] text-text-muted">
-            sealed → reveal @ round R
-          </div>
-        </motion.div>
-      </div>
-    </section>
   )
 }
 
@@ -157,9 +74,13 @@ function Problem() {
           <div className="flex flex-wrap items-center justify-between gap-3 bg-attack/10 px-6 py-4">
             <span className="text-sm text-text-dim">A single sandwiched order on a transparent AMM:</span>
             <span className="font-mono text-sm">
-              <span className="text-attack">bot {SANDWICH.botProfit} {SANDWICH.quote}</span>
+              <span className="text-attack">
+                bot <Counter value={parseFloat(SANDWICH.botProfit)} decimals={2} prefix="+" /> {SANDWICH.quote}
+              </span>
               <span className="mx-2 text-text-muted">·</span>
-              <span className="text-text-dim">victim −{SANDWICH.victimLoss} {SANDWICH.asset}</span>
+              <span className="text-text-dim">
+                victim −<Counter value={parseFloat(SANDWICH.victimLoss)} decimals={2} /> {SANDWICH.asset}
+              </span>
             </span>
           </div>
         </SpotlightCard>

@@ -25,6 +25,12 @@ type Right = {
   feeQuote?: number; feeBps?: number
   oracle?: Oracle
 }
+type VerifyResp = {
+  ok: boolean
+  error?: string
+  sigmaMatchesRelay?: boolean
+  orders?: { orderId: number; decrypted?: { side: string; amount: number; limit_price: number }; placeholder?: boolean }[]
+}
 
 export default function Demo() {
   const [running, setRunning] = useState(false)
@@ -38,8 +44,23 @@ export default function Demo() {
   const [secsLeft, setSecsLeft] = useState(0) // smooth per-second countdown to round R
   const [maxSecs, setMaxSecs] = useState(0)
   const [phase, setPhase] = useState<string | null>(null) // current prep step label
+  const [verify, setVerify] = useState<VerifyResp | null>(null)
+  const [verifying, setVerifying] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const timersRef = useRef<number[]>([])
+
+  async function runVerify() {
+    if (right.batchId === undefined) return
+    setVerifying(true); setVerify(null)
+    try {
+      const r = await fetch(`${BACKEND}/api/verify?batch=${right.batchId}`)
+      setVerify((await r.json()) as VerifyResp)
+    } catch (e) {
+      setVerify({ ok: false, error: String((e as Error).message) })
+    } finally {
+      setVerifying(false)
+    }
+  }
 
   // Tick the countdown locally every second so it never looks frozen between
   // the ~3s-apart bot attempts; each attempt re-syncs it to the real value.
@@ -53,7 +74,7 @@ export default function Demo() {
     esRef.current?.close()
     timersRef.current.forEach(clearTimeout); timersRef.current = []
     setRunning(true); setDone(false); setErr(null); setLeft(null); setLeftStage(0)
-    setRetry(null); setExhausted(false); setRight({ attempts: [] }); setSecsLeft(0); setMaxSecs(0); setPhase("Connecting to the live demo…")
+    setRetry(null); setExhausted(false); setRight({ attempts: [] }); setSecsLeft(0); setMaxSecs(0); setPhase("Connecting to the live demo…"); setVerify(null)
     const es = new EventSource(`${BACKEND}/api/demo`)
     esRef.current = es
     es.onmessage = (ev) => {
@@ -302,6 +323,19 @@ export default function Demo() {
                       cleared within {right.navDeviationPct}% of NAV (${right.nav?.toFixed(2)} par) — at par, zero MEV
                     </div>
                   )}
+                  {right.navDeviationPct !== undefined && (
+                    <div
+                      className={cn(
+                        "mt-2 inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 font-mono text-[11px]",
+                        right.navDeviationPct <= 1
+                          ? "border-revealed/40 bg-revealed/10 text-revealed"
+                          : "border-warn/40 bg-warn/10 text-warn",
+                      )}
+                    >
+                      {right.navDeviationPct <= 1 ? "✓" : "⚠"} fair-value guardrail · {right.navDeviationPct}% vs reference
+                      <span className="text-text-muted"> · display-only (on-chain: roadmap)</span>
+                    </div>
+                  )}
                   <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-text-dim">
                     <span>alice <b className="text-text">+{right.aliceGainBase} {right.base ?? "tUSTB"}</b></span>
                     <span>bob <b className="text-text">+{right.bobGainUsdc} USDC</b></span>
@@ -321,6 +355,20 @@ export default function Demo() {
                   )}
                   <div className="mt-3 inline-flex items-center gap-2 rounded-pill border border-revealed/40 bg-revealed/10 px-3 py-1 font-mono text-xs text-revealed">
                     frontrun attempts: {right.frontrunAttempts} — 0 successful
+                  </div>
+
+                  {/* Public auditor — re-decrypt from the public beacon, no trust. */}
+                  <div className="mt-4 border-t border-revealed/20 pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="max-w-md text-xs text-text-muted">
+                        Don't trust the settler — <b className="text-text-dim">verify</b>. Anyone can re-decrypt every
+                        order from the public beacon σ_R (no admin keys, no settler trust).
+                      </div>
+                      <Button size="md" variant="ghost" onClick={runVerify} disabled={verifying}>
+                        {verifying ? "verifying…" : "🔓 Verify independently"}
+                      </Button>
+                    </div>
+                    {verify && <VerifyResult v={verify} />}
                   </div>
                 </div>
               </motion.div>
@@ -465,5 +513,37 @@ function RevealBurst() {
         />
       ))}
     </div>
+  )
+}
+
+function VerifyResult({ v }: { v: VerifyResp }) {
+  if (!v.ok) return <p className="mt-3 font-mono text-xs text-warn">⚠ {v.error}</p>
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-3 rounded-[var(--radius-sm)] border border-revealed/30 bg-bg/60 p-3 font-mono text-xs"
+    >
+      <div className={v.sigmaMatchesRelay ? "text-revealed" : "text-attack"}>
+        {v.sigmaMatchesRelay ? "✓" : "✗"} sha256(public σ_R) == relay.get(R) — the exact key the contract verified
+      </div>
+      <div className="mt-2 space-y-1">
+        {v.orders?.map((o) => (
+          <div key={o.orderId} className="text-text-dim">
+            order {o.orderId}:{" "}
+            {o.placeholder ? (
+              <span className="text-text-muted">(placeholder ciphertext — nothing to decrypt)</span>
+            ) : (
+              <span className="text-text">
+                {o.decrypted?.side} {o.decrypted?.amount} @ ${(Number(o.decrypted?.limit_price) / 1e7).toFixed(3)}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 text-text-muted">
+        Recomputed from the public beacon — a misreported or censored order would show up here.
+      </div>
+    </motion.div>
   )
 }

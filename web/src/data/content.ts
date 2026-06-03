@@ -13,11 +13,14 @@ export const LINKS = {
 
 export const ADDRESSES = {
   // Permissioned RWA BatchGate (tUSTB/USDC) — deployed on testnet.
-  batchGate: "CBXABKTCDWPB6CDKWXMICEC2EDJWFY2GETC7VREK74FNQHRINXKQ3GPB",
+  batchGate: "CAFQP734PFBBUCQQCD2NXUB6CDTXCWAHYT4ZUWJM5FNKOUBZPSM7STQE",
   tustbSac: "CAUDJW4XV2AFXCNUYVHU6IIM5D27745Z6NYFH5PGSTFDYAGQJO5BDZQU",
   usdcSac: "CAE7ERCVPJ5MIC7TI3PRDBNMXD4WYIZV7A6Q5ZR33QVDRV2364JLGBBO",
   drandRelay: "CAESC7SC5EW5P2P3IM5Q7E64ZNDATVSN5F57NTCH5E7GJRPDM76KF7QM",
   noetherOracle: "CBDH7R4PBFHMN4AER74O4RG7VHUWUMFI67UKDIY6ISNQP4H5KFKMSBS4",
+  // Classic issuer (admin) of the test tUSTB/USDC assets — needed for the
+  // wallet faucet's trustlines (Phase B). Public; not a secret.
+  assetIssuer: "GBMF7MDHLF6E5GWNCUJZKDBID5LCU5U5K7J26MRUJCM2FK7J7VZXTZZ3",
 }
 
 export const NETWORK = {
@@ -44,8 +47,8 @@ export const CRYPTO = {
   scheme: "bls-unchained-g1-rfc9380",
   beacon: "drand quicknet",
   period: "3s",
-  tests: "23 / 23",
-  wasmBytes: "29,258",
+  tests: "25 / 25",
+  wasmBytes: "31,531",
   target: "wasm32v1-none",
 }
 

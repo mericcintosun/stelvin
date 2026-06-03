@@ -714,3 +714,67 @@ fn test_kyc_revocation_blocks() {
     s.contract.set_kyc(&alice, &false); // revoked
     s.contract.deposit_funds(&alice, &s.quote, &100); // now rejected
 }
+
+/// Griefing guard (ADR-019): a single huge-`amount` / near-zero-funding buyer
+/// must NOT collapse the batch. Without the guard the global feasibility scalar
+/// r → 0 and the honest pair trades ~nothing; with it the griefer is excluded
+/// (no fill, funds untouched) and the honest buyer + seller clear in full.
+#[test]
+fn test_griefing_underfunded_excluded() {
+    let s = setup();
+    let env = &s.env;
+    let griefer = Address::generate(env);
+    let honest_buyer = Address::generate(env);
+    let seller = Address::generate(env);
+
+    s.quote_admin.mint(&griefer, &1); // funds 1 but will "buy" 100_000
+    s.quote_admin.mint(&honest_buyer, &1_000);
+    s.base_admin.mint(&seller, &1_000);
+    s.contract.deposit_funds(&griefer, &s.quote, &1);
+    s.contract.deposit_funds(&honest_buyer, &s.quote, &1_000);
+    s.contract.deposit_funds(&seller, &s.base, &1_000);
+
+    let reveal_round = est_current_round(env) + FUTURE_ROUND_BUFFER + 1;
+    let batch_id = s.contract.create_batch(&reveal_round);
+    let ct = Bytes::from_slice(env, b"ct");
+    let gid = s.contract.submit_order(&griefer, &batch_id, &ct);
+    let hid = s.contract.submit_order(&honest_buyer, &batch_id, &ct);
+    let sid = s.contract.submit_order(&seller, &batch_id, &ct);
+
+    // All at price 1.0. Griefer "buys" 100_000 funded for only 1 quote (<<1%).
+    let mut reveal: Vec<Revealed> = Vec::new(env);
+    reveal.push_back(revealed(env, gid, Side::Buy, 100_000, 10_000_000));
+    reveal.push_back(revealed(env, hid, Side::Buy, 100, 10_000_000));
+    reveal.push_back(revealed(env, sid, Side::Sell, 100, 10_000_000));
+
+    let sigma = arm_relay(&s, reveal_round);
+    s.contract.settle(&batch_id, &sigma, &reveal);
+
+    let c = s.contract.get_clearing(&batch_id).unwrap();
+    assert_eq!(c.matched_volume, 100, "honest pair clears despite the griefer");
+    assert_eq!(s.contract.get_balance(&honest_buyer, &s.base), 100, "honest buyer filled");
+    assert_eq!(s.contract.get_balance(&griefer, &s.base), 0, "griefer got no fill");
+    assert_eq!(s.contract.get_balance(&griefer, &s.quote), 1, "griefer funds untouched");
+    assert_eq!(1_000 - s.contract.get_balance(&seller, &s.base), 100, "base conserved");
+}
+
+// ── On-chain independent BLS verification (ADR-002 stretch / ADR-019) ────────
+
+/// The contract independently verifies a REAL drand quicknet signature on-chain
+/// via the BLS12-381 host functions (no relay trust): a genuine (round, sig)
+/// pair passes; the same signature against the wrong round fails — proving the
+/// pairing actually binds the round, not a constant `true`.
+#[test]
+fn test_verify_round_signature() {
+    let s = setup();
+    let sig = BytesN::from_array(&s.env, &super::drand_consts::TEST_SIG);
+    assert!(
+        s.contract.verify_round_signature(&super::drand_consts::TEST_ROUND, &sig),
+        "the real quicknet signature must verify on-chain"
+    );
+    // Valid on-curve signature, but the wrong round → the pairing must reject.
+    assert!(
+        !s.contract.verify_round_signature(&(super::drand_consts::TEST_ROUND + 1), &sig),
+        "a signature must not verify against a different round"
+    );
+}
